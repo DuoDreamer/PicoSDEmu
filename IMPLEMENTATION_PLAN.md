@@ -2,7 +2,7 @@
 
 ## 1. Project goal
 
-Build firmware for a Raspberry Pi Pico that appears to a client as an SD card in
+Build firmware for a Raspberry Pi Pico 2 that appears to a client as an SD card in
 SPI mode while storing the card contents in a disk-image file managed by a host
 PC. The Pico forwards sector reads and writes over USB to a small host service.
 As an optional second backend, the Pico can access a physical SD card on another
@@ -10,12 +10,13 @@ SPI bus; the host can copy an image to that card and the Pico can expose it to
 the client.
 
 The first release should deliberately support **SD SPI mode only**, not the
-native 1-bit or 4-bit SD bus. It should target an RP2040 Pico and the Pico SDK,
+native 1-bit or 4-bit SD bus. It targets only the non-wireless Raspberry Pi Pico
+2 module (`PICO_BOARD=pico2`, RP2350) and the Pico SDK,
 with C++17 for firmware and the host application.
 
 ## 2. Feasibility constraints and early proof of concept
 
-An SD card is the SPI **slave**, whereas the RP2040 hardware SPI blocks are
+An SD card is the SPI **slave**, whereas the RP2350 hardware SPI blocks are
 normally used as masters by Pico SDK applications. Implement the client-facing
 port with PIO state machines and DMA. Validate this before building the rest of
 the product because it is the highest-risk part of the design.
@@ -41,7 +42,7 @@ from Pico SRAM. Only then proceed to host-backed I/O.
 ## 3. Proposed architecture
 
 ```text
- Client device                    Raspberry Pi Pico                 Host PC
+ Client device                   Raspberry Pi Pico 2                Host PC
  +--------------+     SPI      +----------------------+    USB    +-----------+
  | SD host      |<------------>| PIO SD SPI target    |<-------->| image     |
  | (master)     |              | command/state engine |  bulk    | service   |
@@ -204,13 +205,13 @@ the emulated medium to be ejected during a destructive copy.
 ## 9. Repository and build layout
 
 ```text
- firmware/
+ firmware/                       # Pico 2 cross-compiled project
    CMakeLists.txt
    src/{app,control,sd_target,storage}/
    pio/
- host/
+ host/terminal/                  # Linux/Windows console application
    CMakeLists.txt
-   src/
+   src/main.cpp
  shared/protocol/
  tests/{protocol,sd_model,integration}/
  tools/
@@ -219,7 +220,7 @@ the emulated medium to be ejected during a destructive copy.
 
 Pin a supported Pico SDK release, generate PIO headers with
 `pico_generate_pio_header`, and enable warnings-as-errors in project code.
-Provide CMake presets for native host tests and RP2040 cross-compilation. Keep
+Provide CMake presets for native host tests and RP2350 cross-compilation. Keep
 hardware pin assignments and feature flags in a board configuration header,
 with an example schematic and wiring table in `docs/hardware`.
 
@@ -334,4 +335,3 @@ when:
    limit, and unsupported commands are published;
 5. the optional physical SD work remains isolated behind the backend interface
    and does not complicate the first release.
-
