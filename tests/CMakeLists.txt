@@ -124,3 +124,19 @@ else()
     target_compile_options(picosd-codec-tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 add_test(NAME picosd.protocol.codec COMMAND picosd-codec-tests)
+
+add_executable(picosd-host-image-file-tests
+    image_file_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/image_file.cpp
+)
+target_include_directories(picosd-host-image-file-tests PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src
+)
+target_compile_features(picosd-host-image-file-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-host-image-file-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-host-image-file-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-host-image-file-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.host.image_file COMMAND picosd-host-image-file-tests)
