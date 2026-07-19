@@ -1,5 +1,6 @@
 add_library(picosd-protocol-core
     src/crc.cpp
+    src/text_line.cpp
 )
 
 target_include_directories(picosd-protocol-core PUBLIC

@@ -132,11 +132,10 @@ or data transfer resets framing cleanly.
 
 ### Host connection
 
-Use the Pico USB device controller. Start with TinyUSB vendor-specific bulk
-endpoints for predictable binary transfer and a CDC serial interface for logs
-and control. If endpoint/resource limits make the composite device cumbersome,
-put control messages on the same framed bulk channel and reserve CDC for debug
-builds.
+Use the Pico USB device controller as a USB CDC serial device. The initial
+protocol is terminal-friendly, newline-delimited text for both control and
+block-service requests. A binary transport may be considered in a future phase
+only after it is justified by measured limitations of the text protocol.
 
 ### Optional physical SD backend
 
@@ -170,14 +169,11 @@ completion arrives.
 
 ## 7. Pico-to-host protocol
 
-Define a versioned, little-endian binary protocol. Every message should include:
-
-- magic value and protocol version;
-- message type, flags, header length, and payload length;
-- monotonically increasing request ID;
-- logical block address and block count where applicable;
-- header/payload integrity check (CRC32C is suitable);
-- explicit status/error code in responses.
+Define a versioned, line-oriented text protocol over USB CDC. Every request and
+response is newline-terminated, uses a descriptive command token followed by
+`key=value` fields, carries a request ID for programmatic correlation, and has
+an explicit `OK` or `ERR` result. Data payloads use base64 for normal block
+service and hex for diagnostics; both include a CRC32 of decoded bytes.
 
 Required operations are `HELLO`, `GET_INFO`, `READ_BLOCKS`, `WRITE_BLOCKS`,
 `FLUSH`, `MOUNT`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and asynchronous
@@ -313,8 +309,8 @@ items.
 
 1. Implement project-owned CRC7, CRC16, and CRC32 functions from their published
    polynomial definitions, with no lookup table copied from elsewhere.
-2. Implement bounds-checked USB header serialization/deserialization using byte
-   arrays rather than packed compiler-dependent structs.
+2. Implement bounds-checked USB CDC text-line parsing and formatting with fixed
+   token limits and no packed compiler-dependent wire structs.
 3. Implement SD command decoding and response construction as a host-buildable
    library with no Pico SDK dependency.
 4. Implement an explicit card state model (`PowerUp`, `Idle`, `Ready`, `Transfer`,
@@ -375,8 +371,8 @@ mismatch or electrical violation.
 
 1. Implement original TinyUSB device integration using only the separately
    installed Pico SDK APIs; do not copy SDK examples into project source.
-2. Implement framing, request IDs, bounded multi-request queues, session IDs,
-   handshake/version negotiation, and CRC32C validation.
+2. Implement text-line framing, request IDs, bounded multi-request queues,
+   session IDs, handshake/version negotiation, and CRC32 validation.
 3. Implement the Linux host adapter with native APIs and the project-owned
    transport interface.
 4. Extend the console application with device discovery, `serve`, `mount`,
@@ -591,7 +587,7 @@ pass using either USB image or physical SD backend.
 
 Use layered tests rather than relying only on filesystem mounting:
 
-- **Unit tests:** CRC7/CRC16/CRC32C, command decoding, CSD encoding, bounds and
+- **Unit tests:** CRC7/CRC16/CRC32, command decoding, CSD encoding, bounds and
   overflow checks, framing, cache transitions, and timeout behavior.
 - **PIO tests:** byte-level loopback, CS abort at every bit position, clock-rate
   sweep, DMA wraparound, underrun behavior, and MISO tri-state verification.
