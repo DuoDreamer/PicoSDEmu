@@ -1,0 +1,35 @@
+#pragma once
+
+#include "picosd/protocol/sd_card_state.hpp"
+#include "picosd/protocol/sd_command.hpp"
+#include "picosd/protocol/sd_registers.hpp"
+
+namespace picosd::protocol {
+
+struct SdModelResult {
+    SdResponse response{};
+    bool has_read_block = false;
+    SdBlock read_block{};
+};
+
+class SdCardModel {
+public:
+    SdCardModel(SdCardType type, RamBlockBackend& backend);
+    [[nodiscard]] SdCardState state() const;
+    [[nodiscard]] const SdCardRegisters& registers() const;
+    SdModelResult execute(const SdCommand& command);
+    SdResponse write_block(const SdBlock& block, std::uint16_t crc);
+
+private:
+    [[nodiscard]] bool command_lba(std::uint32_t argument, std::size_t& lba) const;
+    [[nodiscard]] std::uint8_t r1_status() const;
+
+    RamBlockBackend& backend_;
+    SdCardRegisters registers_;
+    SdCardType type_;
+    SdCardStateMachine state_;
+    bool app_command_pending_ = false;
+    std::size_t pending_write_lba_ = 0;
+};
+
+}  // namespace picosd::protocol
