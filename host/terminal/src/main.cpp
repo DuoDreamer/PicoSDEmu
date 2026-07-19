@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string_view>
 
+#include "image_file.hpp"
 #include "picosd/protocol/version.hpp"
 
 namespace {
@@ -78,13 +79,13 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::ifstream image{image_path, std::ios::binary};
-    if (!image) {
-        std::cerr << "Could not open image: " << image_path.string() << '\n';
+    picosd::host::ImageFile image;
+    if (!image.open(image_path, access_mode == "--rw")) {
+        std::cerr << "Could not open and exclusively lock image: " << image_path.string() << '\n';
         return 1;
     }
 
-    std::cout << "Validated " << image_path.string() << " (" << size << " bytes) for "
+    std::cout << "Validated " << image_path.string() << " (" << image.block_count() << " blocks) for "
               << type << " on " << port << ".\n"
               << "Access mode: " << (access_mode == "--rw" ? "read-write" : "read-only") << ".\n"
               << "USB CDC serving will be enabled when the transport backend is added.\n";

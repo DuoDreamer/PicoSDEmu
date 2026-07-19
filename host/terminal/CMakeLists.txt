@@ -1,5 +1,6 @@
 add_executable(picosd-host
     src/main.cpp
+    src/image_file.cpp
 )
 
 target_include_directories(picosd-host PRIVATE
@@ -16,4 +17,3 @@ if(MSVC)
 else()
     target_compile_options(picosd-host PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
