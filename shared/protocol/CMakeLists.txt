@@ -1,4 +1,5 @@
 add_library(picosd-protocol-core
+    src/codec.cpp
     src/crc.cpp
     src/sd_card_state.cpp
     src/sd_registers.cpp
