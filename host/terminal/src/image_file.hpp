@@ -24,7 +24,11 @@ private:
     std::fstream stream_;
     std::uint64_t block_count_ = 0;
     bool writable_ = false;
+#if defined(_WIN32)
+    void* lock_handle_ = nullptr;
+#else
     int file_descriptor_ = -1;
+#endif
 };
 
 }  // namespace picosd::host
