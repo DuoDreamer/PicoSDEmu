@@ -33,6 +33,7 @@ public:
     [[nodiscard]] SdCardState state() const;
     SdCardStateError finish_power_up();
     SdCardStateError reset();
+    SdCardStateError enter_idle();
     SdCardStateError make_ready();
     SdCardStateError begin_transfer();
     SdCardStateError begin_receiving_data();

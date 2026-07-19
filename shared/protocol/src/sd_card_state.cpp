@@ -16,6 +16,11 @@ SdCardStateError SdCardStateMachine::reset() {
     return SdCardStateError::None;
 }
 
+SdCardStateError SdCardStateMachine::enter_idle() {
+    state_ = SdCardState::Idle;
+    return SdCardStateError::None;
+}
+
 SdCardStateError SdCardStateMachine::make_ready() {
     if (state_ != SdCardState::Idle) return SdCardStateError::InvalidTransition;
     state_ = SdCardState::Ready;
