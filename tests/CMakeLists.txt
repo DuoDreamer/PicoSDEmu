@@ -60,3 +60,24 @@ else()
 endif()
 
 add_test(NAME picosd.protocol.text_line COMMAND picosd-text-line-tests)
+
+add_executable(picosd-sd-command-tests
+    sd_command_tests.cpp
+)
+
+target_link_libraries(picosd-sd-command-tests PRIVATE
+    picosd-protocol-core
+)
+
+target_compile_features(picosd-sd-command-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-sd-command-tests PROPERTIES
+    CXX_EXTENSIONS OFF
+)
+
+if(MSVC)
+    target_compile_options(picosd-sd-command-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-sd-command-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_test(NAME picosd.protocol.sd_command COMMAND picosd-sd-command-tests)
