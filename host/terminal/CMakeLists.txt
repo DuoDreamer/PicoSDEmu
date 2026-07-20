@@ -2,6 +2,7 @@ add_executable(picosd-host
     src/main.cpp
     src/image_file.cpp
     src/serve_options.cpp
+    src/cdc_transport.cpp
 )
 
 target_include_directories(picosd-host PRIVATE
