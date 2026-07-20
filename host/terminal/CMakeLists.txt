@@ -3,7 +3,10 @@ add_executable(picosd-host
     src/image_file.cpp
     src/serve_options.cpp
     src/cdc_transport.cpp
+    src/session_dispatcher.cpp
 )
+
+target_link_libraries(picosd-host PRIVATE picosd-protocol-core)
 
 target_include_directories(picosd-host PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/../../shared/protocol/include
