@@ -16,6 +16,7 @@ private:
     ImageFile& image_;
     std::string card_type_;
     bool writable_;
+    bool ejected_ = false;
 };
 
 }  // namespace picosd::host
