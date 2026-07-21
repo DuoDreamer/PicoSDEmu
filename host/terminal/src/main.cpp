@@ -3,7 +3,15 @@
 #include <iostream>
 #include <string_view>
 
+#if !defined(_WIN32)
+#include <thread>
+#include <chrono>
+#endif
+
+#include "cdc_transport.hpp"
 #include "image_file.hpp"
+#include "session_dispatcher.hpp"
+#include "session_runner.hpp"
 #include "serve_options.hpp"
 #include "picosd/protocol/version.hpp"
 
@@ -74,9 +82,27 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::cout << "Validated " << options.image_path.string() << " (" << image.block_count() << " blocks) for "
-              << options.card_type << " on " << options.port << ".\n"
-              << "Access mode: " << (options.writable ? "read-write" : "read-only") << ".\n"
-              << "USB CDC serving will be enabled when the transport backend is added.\n";
-    return 0;
+#if defined(_WIN32)
+    std::cerr << "Windows USB CDC transport is not implemented yet.\n";
+    return 1;
+#else
+    picosd::host::PosixCdcTransport transport;
+    if (transport.open(options.port) != picosd::host::CdcTransportError::None) {
+        std::cerr << "Could not open USB CDC port: " << options.port << '\n';
+        return 1;
+    }
+    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable};
+    std::cout << "Serving " << options.image_path.string() << " (" << image.block_count() << " blocks) on "
+              << options.port << ".\n";
+    while (true) {
+        const auto result = picosd::host::process_one_request(transport, dispatcher);
+        if (result == picosd::host::SessionRunResult::TransportError) {
+            std::cerr << "USB CDC transport disconnected or failed.\n";
+            return 1;
+        }
+        if (result == picosd::host::SessionRunResult::NoRequest) {
+            std::this_thread::sleep_for(std::chrono::milliseconds{5});
+        }
+    }
+#endif
 }
