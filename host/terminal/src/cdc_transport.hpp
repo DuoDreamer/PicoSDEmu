@@ -39,4 +39,19 @@ private:
     std::deque<std::string> written_lines_;
 };
 
+#if !defined(_WIN32)
+class PosixCdcTransport final : public CdcTransport {
+public:
+    ~PosixCdcTransport() override;
+    CdcTransportError open(std::string_view port) override;
+    void close() override;
+    [[nodiscard]] bool is_open() const override;
+    CdcTransportError write_line(std::string_view line) override;
+    CdcTransportError read_line(std::string& line) override;
+private:
+    int descriptor_ = -1;
+    std::string pending_;
+};
+#endif
+
 }  // namespace picosd::host
