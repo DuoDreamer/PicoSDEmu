@@ -225,3 +225,33 @@ Test gate:
 
 - Recommended wiring is documented with measured safe idle behavior.
 - Optional card-detect behavior is verified on a test fixture even if the first SC126 adapter does not use it.
+
+## Future enhancements — folder-backed RAM image source
+
+After the main image-backed product is complete and stable, consider an optional
+host mode that accepts a local folder as its source. This is explicitly a
+future enhancement and is not part of the initial host-served image milestone.
+
+At server startup, the host application would scan a selected folder subject to
+documented limitations, construct a complete filesystem disk image in host RAM,
+and then serve that RAM image through the same block protocol used for a normal
+image file. The Pico and retro client would therefore continue to see an
+ordinary fixed-capacity SD card; they would not receive direct host filesystem
+operations.
+
+The feature must be specified and reviewed in a separate design discussion
+before implementation. That discussion must settle at least:
+
+- filesystem format and client compatibility target;
+- capacity calculation, free-space policy, and deterministic directory order;
+- permitted names, file types, timestamps, attributes, and folder-depth limits;
+- whether the exported image is read-only or how client writes are staged and
+  committed back to the source folder;
+- folder-change policy while the server is running, including remount and cache
+  invalidation behavior;
+- RAM-size limits, startup-time limits, error reporting, and fallback behavior;
+- atomicity, crash recovery, and ownership rules for the source folder.
+
+The default image-file backend remains the authoritative implementation for the
+initial product. A folder source must not compromise its exclusive ownership,
+write-through, flush, eject, or USB-loss safety guarantees.
