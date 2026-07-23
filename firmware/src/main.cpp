@@ -2,6 +2,7 @@
 
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
+#include "picosd/cdc_shell.hpp"
 #include "picosd/protocol/version.hpp"
 
 int main() {
@@ -15,7 +16,7 @@ int main() {
                 static_cast<unsigned>(picosd::protocol::kVersionMinor));
 
     while (true) {
+        picosd::firmware::poll_cdc_shell();
         tight_loop_contents();
     }
 }
-

@@ -21,6 +21,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 pico_sdk_init()
 
 add_executable(picosd_firmware
+    src/cdc_shell.cpp
     src/main.cpp
 )
 
@@ -42,4 +43,3 @@ target_compile_options(picosd_firmware PRIVATE
 pico_enable_stdio_usb(picosd_firmware 1)
 pico_enable_stdio_uart(picosd_firmware 0)
 pico_add_extra_outputs(picosd_firmware)
-
