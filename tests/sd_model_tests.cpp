@@ -11,6 +11,7 @@ int main() {
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
     card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");
+    expect(card.execute(cmd(16, 512)).response.bytes[0] == 0U, "CMD16 accepts 512-byte blocks");
     const auto csd = card.execute(cmd(9));
     expect(csd.has_register_data && csd.register_data == card.registers().csd, "CMD9 returns CSD");
     const auto cid = card.execute(cmd(10));
@@ -20,6 +21,14 @@ int main() {
     card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;
     expect(card.write_block(block, crc16(block.data(), block.size())).bytes[0] == 0U, "CMD24 data writes");
     expect(card.execute(cmd(17, 0)).read_block[4] == 0xa5U, "written data reads back");
+
+    RamBlockBackend high_capacity_store{16};
+    SdCardModel high_capacity{SdCardType::Sdhc, high_capacity_store};
+    high_capacity.execute(cmd(0));
+    high_capacity.execute(cmd(55));
+    high_capacity.execute(cmd(41));
+    expect(high_capacity.execute(cmd(16, 512)).response.bytes[0] == 0U,
+           "SDHC accepts CMD16 with the fixed block length");
     if (failures != 0) {
         return 1;
     }

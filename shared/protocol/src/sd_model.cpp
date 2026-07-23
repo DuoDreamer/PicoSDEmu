@@ -64,7 +64,8 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.register_data = command.index == 9U ? registers_.csd : registers_.cid;
         return result;
     }
-    if (command.index == 16U && command.argument == kSdBlockSize && type_ == SdCardType::Sdsc) {
+    if (command.index == 16U && command.argument == kSdBlockSize &&
+        (type_ == SdCardType::Sdsc || type_ == SdCardType::Sdhc)) {
         result.response = make_r1(r1_status());
         return result;
     }
