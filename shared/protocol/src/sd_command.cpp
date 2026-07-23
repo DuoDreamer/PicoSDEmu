@@ -91,4 +91,8 @@ bool verify_data_block_crc(const std::array<std::uint8_t, 512>& payload, std::ui
     return crc16(payload.data(), payload.size()) == received_crc;
 }
 
+std::uint8_t make_data_response(std::uint8_t status) {
+    return static_cast<std::uint8_t>((status & 0x1fU) | 0x01U);
+}
+
 }  // namespace picosd::protocol

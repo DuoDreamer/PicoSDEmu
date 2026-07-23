@@ -93,6 +93,10 @@ int main() {
     const auto crc = static_cast<std::uint16_t>((data_block.bytes[513] << 8U) | data_block.bytes[514]);
     expect(picosd::protocol::verify_data_block_crc(payload, crc), "read data CRC");
     expect(!picosd::protocol::verify_data_block_crc(payload, static_cast<std::uint16_t>(crc ^ 1U)), "bad data CRC");
+    expect(picosd::protocol::make_data_response(picosd::protocol::kSdDataResponseAccepted) == 0x05U,
+           "accepted data response");
+    expect(picosd::protocol::make_data_response(picosd::protocol::kSdDataResponseCrcError) == 0x0bU,
+           "CRC-error data response");
 
     if (failures != 0) {
         return 1;
