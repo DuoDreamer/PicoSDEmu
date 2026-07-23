@@ -10,6 +10,10 @@ int main() {
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
     card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");
+    const auto csd = card.execute(cmd(9));
+    expect(csd.has_register_data && csd.register_data == card.registers().csd, "CMD9 returns CSD");
+    const auto cid = card.execute(cmd(10));
+    expect(cid.has_register_data && cid.register_data == card.registers().cid, "CMD10 returns CID");
     auto read = card.execute(cmd(17, 512)); expect(read.has_read_block && read.read_block[0] == 37U, "SDSC CMD17 uses byte addressing");
     expect(card.execute(cmd(17, 1)).response.bytes[0] == static_cast<std::uint8_t>(SdR1::AddressError), "unaligned SDSC address rejected");
     card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;

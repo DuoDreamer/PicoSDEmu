@@ -10,6 +10,8 @@ struct SdModelResult {
     SdResponse response{};
     bool has_read_block = false;
     SdBlock read_block{};
+    bool has_register_data = false;
+    std::array<std::uint8_t, 16> register_data{};
 };
 
 class SdCardModel {

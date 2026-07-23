@@ -52,6 +52,14 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
                                              (static_cast<std::uint32_t>(registers_.ocr[2]) << 8U) | registers_.ocr[3]);
         return result;
     }
+    if ((command.index == 9U || command.index == 10U) &&
+        (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
+        state_.begin_transfer();
+        result.response = make_r1(0U);
+        result.has_register_data = true;
+        result.register_data = command.index == 9U ? registers_.csd : registers_.cid;
+        return result;
+    }
     if (command.index == 16U && command.argument == kSdBlockSize && type_ == SdCardType::Sdsc) {
         result.response = make_r1(r1_status());
         return result;
