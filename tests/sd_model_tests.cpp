@@ -7,6 +7,7 @@ int main() {
     using namespace picosd::protocol;
     RamBlockBackend store{16}; store.fill_diagnostic_pattern(); SdCardModel card{SdCardType::Sdsc, store};
     expect(card.execute(cmd(0)).response.bytes[0] == 1U, "CMD0 enters idle");
+    expect(card.execute(cmd(13)).response.type == SdResponseType::R2, "CMD13 returns R2 status");
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
     card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");

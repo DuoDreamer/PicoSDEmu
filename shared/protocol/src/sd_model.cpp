@@ -35,6 +35,10 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r7(r1_status(), command.argument);
         return result;
     }
+    if (command.index == 13U && state() != SdCardState::PowerUp && state() != SdCardState::Fault) {
+        result.response = make_r2(r1_status(), 0U);
+        return result;
+    }
     if (command.index == 55U) {
         app_command_pending_ = true;
         result.response = make_r1(r1_status());
