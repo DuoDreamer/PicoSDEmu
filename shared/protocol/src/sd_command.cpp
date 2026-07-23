@@ -77,4 +77,18 @@ SdResponse make_r7(std::uint8_t status, std::uint32_t echo) {
     return response;
 }
 
+SdDataBlock make_read_data_block(const std::array<std::uint8_t, 512>& payload) {
+    SdDataBlock block;
+    block.bytes[0] = kSdStartBlockToken;
+    for (std::size_t index = 0; index < payload.size(); ++index) block.bytes[index + 1] = payload[index];
+    const std::uint16_t checksum = crc16(payload.data(), payload.size());
+    block.bytes[513] = static_cast<std::uint8_t>(checksum >> 8U);
+    block.bytes[514] = static_cast<std::uint8_t>(checksum);
+    return block;
+}
+
+bool verify_data_block_crc(const std::array<std::uint8_t, 512>& payload, std::uint16_t received_crc) {
+    return crc16(payload.data(), payload.size()) == received_crc;
+}
+
 }  // namespace picosd::protocol

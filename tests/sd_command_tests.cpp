@@ -84,6 +84,16 @@ int main() {
     expect_response(picosd::protocol::make_r7(0x01U, 0x000001aaU), picosd::protocol::SdResponseType::R7,
                     {0x01U, 0x00U, 0x00U, 0x01U, 0xaaU}, "R7 construction");
 
+    std::array<std::uint8_t, 512> payload{};
+    payload[0] = 0x12U;
+    payload[511] = 0x34U;
+    const auto data_block = picosd::protocol::make_read_data_block(payload);
+    expect(data_block.bytes[0] == picosd::protocol::kSdStartBlockToken, "read data token");
+    expect(data_block.bytes[1] == 0x12U && data_block.bytes[512] == 0x34U, "read data payload");
+    const auto crc = static_cast<std::uint16_t>((data_block.bytes[513] << 8U) | data_block.bytes[514]);
+    expect(picosd::protocol::verify_data_block_crc(payload, crc), "read data CRC");
+    expect(!picosd::protocol::verify_data_block_crc(payload, static_cast<std::uint16_t>(crc ^ 1U)), "bad data CRC");
+
     if (failures != 0) {
         return 1;
     }

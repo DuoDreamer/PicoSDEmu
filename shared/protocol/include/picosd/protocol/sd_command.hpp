@@ -8,6 +8,8 @@ namespace picosd::protocol {
 
 inline constexpr std::size_t kSdCommandFrameSize = 6;
 inline constexpr std::size_t kSdMaximumResponseSize = 5;
+inline constexpr std::uint8_t kSdStartBlockToken = 0xfeU;
+inline constexpr std::size_t kSdDataBlockWireSize = 515;
 
 enum class SdCommandError {
     None,
@@ -65,5 +67,12 @@ SdResponse make_r1(std::uint8_t status);
 SdResponse make_r2(std::uint8_t status, std::uint8_t card_status);
 SdResponse make_r3(std::uint8_t status, std::uint32_t ocr);
 SdResponse make_r7(std::uint8_t status, std::uint32_t echo);
+
+struct SdDataBlock {
+    std::array<std::uint8_t, kSdDataBlockWireSize> bytes{};
+};
+
+SdDataBlock make_read_data_block(const std::array<std::uint8_t, 512>& payload);
+bool verify_data_block_crc(const std::array<std::uint8_t, 512>& payload, std::uint16_t received_crc);
 
 }  // namespace picosd::protocol
