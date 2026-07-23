@@ -4,6 +4,7 @@ add_executable(picosd-host
     src/serve_options.cpp
     src/cdc_transport.cpp
     src/posix_cdc_transport.cpp
+    src/windows_cdc_transport.cpp
     src/session_dispatcher.cpp
     src/session_runner.cpp
 )

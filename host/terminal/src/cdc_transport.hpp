@@ -54,4 +54,19 @@ private:
 };
 #endif
 
+#if defined(_WIN32)
+class WindowsCdcTransport final : public CdcTransport {
+public:
+    ~WindowsCdcTransport() override;
+    CdcTransportError open(std::string_view port) override;
+    void close() override;
+    [[nodiscard]] bool is_open() const override;
+    CdcTransportError write_line(std::string_view line) override;
+    CdcTransportError read_line(std::string& line) override;
+private:
+    void* handle_ = nullptr;
+    std::string pending_;
+};
+#endif
+
 }  // namespace picosd::host

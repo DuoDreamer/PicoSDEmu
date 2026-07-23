@@ -2,11 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <string_view>
-
-#if !defined(_WIN32)
 #include <thread>
 #include <chrono>
-#endif
 
 #include "cdc_transport.hpp"
 #include "image_file.hpp"
@@ -83,8 +80,17 @@ int main(int argc, char* argv[]) {
     }
 
 #if defined(_WIN32)
-    std::cerr << "Windows USB CDC transport is not implemented yet.\n";
-    return 1;
+    picosd::host::WindowsCdcTransport transport;
+    if (transport.open(options.port) != picosd::host::CdcTransportError::None) {
+        std::cerr << "Could not open USB CDC port: " << options.port << '\n';
+        return 1;
+    }
+    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable};
+    while (true) {
+        const auto result = picosd::host::process_one_request(transport, dispatcher);
+        if (result == picosd::host::SessionRunResult::TransportError) return 1;
+        if (result == picosd::host::SessionRunResult::NoRequest) std::this_thread::sleep_for(std::chrono::milliseconds{5});
+    }
 #else
     picosd::host::PosixCdcTransport transport;
     if (transport.open(options.port) != picosd::host::CdcTransportError::None) {
