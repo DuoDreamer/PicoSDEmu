@@ -22,6 +22,7 @@ int main() {
     const auto cid = card.execute(cmd(10));
     expect(cid.has_register_data && cid.register_data == card.registers().cid, "CMD10 returns CID");
     auto read = card.execute(cmd(17, 512)); expect(read.has_read_block && read.read_block[0] == 37U, "SDSC CMD17 uses byte addressing");
+    expect(card.execute(cmd(12)).response.bytes[0] == 0U, "CMD12 stops transfer cleanly");
     expect(card.execute(cmd(17, 1)).response.bytes[0] == static_cast<std::uint8_t>(SdR1::AddressError), "unaligned SDSC address rejected");
     card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;
     expect(card.write_block(block, crc16(block.data(), block.size())).bytes[0] == 0U, "CMD24 data writes");

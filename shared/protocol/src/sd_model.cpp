@@ -41,6 +41,10 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r2(r1_status(), 0U);
         return result;
     }
+    if (command.index == 12U && state() == SdCardState::Transfer) {
+        result.response = make_r1(0U);
+        return result;
+    }
     if (command.index == 59U && command.argument <= 1U &&
         state() != SdCardState::PowerUp && state() != SdCardState::Fault) {
         command_crc_enabled_ = command.argument == 1U;
