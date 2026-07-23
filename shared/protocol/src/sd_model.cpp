@@ -26,7 +26,7 @@ bool SdCardModel::command_lba(std::uint32_t argument, std::size_t& lba) const {
 
 SdModelResult SdCardModel::execute(const SdCommand& command) {
     SdModelResult result;
-    if (command.index != 55U && command.index != 41U) app_command_pending_ = false;
+    if (command.index != 55U && command.index != 41U && command.index != 23U) app_command_pending_ = false;
     if (command.index == 0U) {
         state_.enter_idle();
         command_crc_enabled_ = false;
@@ -60,6 +60,13 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         state_.make_ready();
         app_command_pending_ = false;
         result.response = make_r1(0U);
+        return result;
+    }
+    if (command.index == 23U && app_command_pending_ &&
+        (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
+        preerase_block_count_ = command.argument;
+        app_command_pending_ = false;
+        result.response = make_r1(r1_status());
         return result;
     }
     if (command.index == 58U && (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {

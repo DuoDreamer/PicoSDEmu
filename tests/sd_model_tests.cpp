@@ -14,6 +14,8 @@ int main() {
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
     card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");
+    card.execute(cmd(55));
+    expect(card.execute(cmd(23, 4)).response.bytes[0] == 0U, "ACMD23 accepts preerase count");
     expect(card.execute(cmd(59, 0)).response.bytes[0] == 0U && !card.command_crc_enabled(),
            "CMD59 disables command CRC after initialization");
     expect(card.execute(cmd(16, 512)).response.bytes[0] == 0U, "CMD16 accepts 512-byte blocks");

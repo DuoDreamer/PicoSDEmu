@@ -32,6 +32,7 @@ private:
     SdCardType type_;
     SdCardStateMachine state_;
     bool app_command_pending_ = false;
+    std::uint32_t preerase_block_count_ = 0;
     bool command_crc_enabled_ = false;
     std::size_t pending_write_lba_ = 0;
 };
