@@ -1,11 +1,27 @@
 #include <cstdio>
 
+#include "hardware/gpio.h"
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
 #include "picosd/cdc_shell.hpp"
 #include "picosd/protocol/version.hpp"
 
 int main() {
+    // Before any SPI target PIO is installed, keep client-facing pins passive.
+    // In particular, MISO must not drive the shared client bus at boot.
+    gpio_init(picosd::board::kClientChipSelectPin);
+    gpio_set_dir(picosd::board::kClientChipSelectPin, GPIO_IN);
+    gpio_disable_pulls(picosd::board::kClientChipSelectPin);
+    gpio_init(picosd::board::kClientClockPin);
+    gpio_set_dir(picosd::board::kClientClockPin, GPIO_IN);
+    gpio_disable_pulls(picosd::board::kClientClockPin);
+    gpio_init(picosd::board::kClientMosiPin);
+    gpio_set_dir(picosd::board::kClientMosiPin, GPIO_IN);
+    gpio_disable_pulls(picosd::board::kClientMosiPin);
+    gpio_init(picosd::board::kClientMisoPin);
+    gpio_set_dir(picosd::board::kClientMisoPin, GPIO_IN);
+    gpio_disable_pulls(picosd::board::kClientMisoPin);
+
     stdio_init_all();
 
     sleep_ms(1500);
