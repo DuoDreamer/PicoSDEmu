@@ -7,6 +7,7 @@ SdCardModel::SdCardModel(SdCardType type, RamBlockBackend& backend)
     : backend_(backend), registers_(make_sd_registers(type, static_cast<std::uint32_t>(backend.block_count()))), type_(type) {}
 
 SdCardState SdCardModel::state() const { return state_.state(); }
+bool SdCardModel::command_crc_enabled() const { return command_crc_enabled_; }
 const SdCardRegisters& SdCardModel::registers() const { return registers_; }
 
 std::uint8_t SdCardModel::r1_status() const {
@@ -28,6 +29,7 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
     if (command.index != 55U && command.index != 41U) app_command_pending_ = false;
     if (command.index == 0U) {
         state_.enter_idle();
+        command_crc_enabled_ = false;
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::Idle));
         return result;
     }
@@ -37,6 +39,12 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
     }
     if (command.index == 13U && state() != SdCardState::PowerUp && state() != SdCardState::Fault) {
         result.response = make_r2(r1_status(), 0U);
+        return result;
+    }
+    if (command.index == 59U && command.argument <= 1U &&
+        state() != SdCardState::PowerUp && state() != SdCardState::Fault) {
+        command_crc_enabled_ = command.argument == 1U;
+        result.response = make_r1(r1_status());
         return result;
     }
     if (command.index == 55U) {

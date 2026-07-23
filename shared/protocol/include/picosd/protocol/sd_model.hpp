@@ -18,6 +18,7 @@ class SdCardModel {
 public:
     SdCardModel(SdCardType type, RamBlockBackend& backend);
     [[nodiscard]] SdCardState state() const;
+    [[nodiscard]] bool command_crc_enabled() const;
     [[nodiscard]] const SdCardRegisters& registers() const;
     SdModelResult execute(const SdCommand& command);
     SdResponse write_block(const SdBlock& block, std::uint16_t crc);
@@ -31,6 +32,7 @@ private:
     SdCardType type_;
     SdCardStateMachine state_;
     bool app_command_pending_ = false;
+    bool command_crc_enabled_ = false;
     std::size_t pending_write_lba_ = 0;
 };
 
