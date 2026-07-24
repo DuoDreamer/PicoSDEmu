@@ -30,6 +30,7 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
     if (command.index == 0U) {
         state_.enter_idle();
         command_crc_enabled_ = false;
+        multi_read_active_ = false;
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::Idle));
         return result;
     }
@@ -42,6 +43,7 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         return result;
     }
     if (command.index == 12U && state() == SdCardState::Transfer) {
+        multi_read_active_ = false;
         result.response = make_r1(0U);
         return result;
     }
@@ -88,18 +90,31 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r1(r1_status());
         return result;
     }
-    if ((command.index == 17U || command.index == 24U) &&
+    if ((command.index == 17U || command.index == 18U || command.index == 24U) &&
         (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
         std::size_t lba = 0;
         if (!command_lba(command.argument, lba)) { result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError)); return result; }
         state_.begin_transfer();
         result.response = make_r1(0U);
-        if (command.index == 17U) { result.has_read_block = backend_.read(lba, result.read_block); }
+        if (command.index == 17U || command.index == 18U) {
+            result.has_read_block = backend_.read(lba, result.read_block);
+            if (command.index == 18U && result.has_read_block) {
+                multi_read_active_ = true;
+                next_multi_read_lba_ = lba + 1;
+            }
+        }
         else { pending_write_lba_ = lba; state_.begin_receiving_data(); }
         return result;
     }
     result.response = make_r1(static_cast<std::uint8_t>(SdR1::IllegalCommand) | r1_status());
     return result;
+}
+
+bool SdCardModel::read_next_multi_block(SdBlock& output) {
+    if (!multi_read_active_ || next_multi_read_lba_ >= registers_.exposed_blocks) return false;
+    if (!backend_.read(next_multi_read_lba_, output)) return false;
+    ++next_multi_read_lba_;
+    return true;
 }
 
 SdResponse SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {

@@ -26,7 +26,13 @@ int main() {
     const auto cid = card.execute(cmd(10));
     expect(cid.has_register_data && cid.register_data == card.registers().cid, "CMD10 returns CID");
     auto read = card.execute(cmd(17, 512)); expect(read.has_read_block && read.read_block[0] == 37U, "SDSC CMD17 uses byte addressing");
+    auto multi_read = card.execute(cmd(18, 0));
+    expect(multi_read.has_read_block && multi_read.read_block[0] == 0U, "CMD18 returns first block");
+    SdBlock next_multi_read{};
+    expect(card.read_next_multi_block(next_multi_read) && next_multi_read[0] == 37U,
+           "CMD18 provides the next sequential block");
     expect(card.execute(cmd(12)).response.bytes[0] == 0U, "CMD12 stops transfer cleanly");
+    expect(!card.read_next_multi_block(next_multi_read), "CMD12 stops multi-block reads");
     expect(card.execute(cmd(17, 1)).response.bytes[0] == static_cast<std::uint8_t>(SdR1::AddressError), "unaligned SDSC address rejected");
     card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;
     expect(card.write_block(block, crc16(block.data(), block.size())).bytes[0] == 0U, "CMD24 data writes");
