@@ -97,6 +97,12 @@ int main() {
            "accepted data response");
     expect(picosd::protocol::make_data_response(picosd::protocol::kSdDataResponseCrcError) == 0x0bU,
            "CRC-error data response");
+    expect(picosd::protocol::is_multi_write_data_token(picosd::protocol::kSdStartMultiWriteToken),
+           "multi-write data token");
+    expect(picosd::protocol::is_multi_write_stop_token(picosd::protocol::kSdStopMultiWriteToken),
+           "multi-write stop token");
+    expect(!picosd::protocol::is_multi_write_data_token(picosd::protocol::kSdStopMultiWriteToken),
+           "stop token is not data token");
 
     if (failures != 0) {
         return 1;

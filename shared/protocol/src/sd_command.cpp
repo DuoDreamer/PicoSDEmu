@@ -95,4 +95,7 @@ std::uint8_t make_data_response(std::uint8_t status) {
     return static_cast<std::uint8_t>((status & 0x1fU) | 0x01U);
 }
 
+bool is_multi_write_data_token(std::uint8_t token) { return token == kSdStartMultiWriteToken; }
+bool is_multi_write_stop_token(std::uint8_t token) { return token == kSdStopMultiWriteToken; }
+
 }  // namespace picosd::protocol

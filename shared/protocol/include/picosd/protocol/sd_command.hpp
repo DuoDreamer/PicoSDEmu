@@ -9,6 +9,8 @@ namespace picosd::protocol {
 inline constexpr std::size_t kSdCommandFrameSize = 6;
 inline constexpr std::size_t kSdMaximumResponseSize = 5;
 inline constexpr std::uint8_t kSdStartBlockToken = 0xfeU;
+inline constexpr std::uint8_t kSdStartMultiWriteToken = 0xfcU;
+inline constexpr std::uint8_t kSdStopMultiWriteToken = 0xfdU;
 inline constexpr std::uint8_t kSdDataResponseAccepted = 0x05U;
 inline constexpr std::uint8_t kSdDataResponseCrcError = 0x0bU;
 inline constexpr std::uint8_t kSdDataResponseWriteError = 0x0dU;
@@ -78,5 +80,7 @@ struct SdDataBlock {
 SdDataBlock make_read_data_block(const std::array<std::uint8_t, 512>& payload);
 bool verify_data_block_crc(const std::array<std::uint8_t, 512>& payload, std::uint16_t received_crc);
 std::uint8_t make_data_response(std::uint8_t status);
+bool is_multi_write_data_token(std::uint8_t token);
+bool is_multi_write_stop_token(std::uint8_t token);
 
 }  // namespace picosd::protocol
