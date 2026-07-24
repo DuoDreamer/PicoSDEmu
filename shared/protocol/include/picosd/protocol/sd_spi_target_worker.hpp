@@ -55,6 +55,7 @@ public:
 
     void chip_select_released() {
         received_.clear();
+        transmit_.clear();
         engine_.chip_select_released();
     }
 

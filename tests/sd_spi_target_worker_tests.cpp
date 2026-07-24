@@ -62,6 +62,14 @@ int main() {
     assert(worker.counters().received_bytes == 30U);
     assert(worker.counters().transmitted_bytes == 1U + 5U + 1U + 1U + 1U + kSdDataBlockWireSize);
 
+    // A new transaction must not inherit response bytes that were queued for
+    // a transaction whose CS line has already been released.
+    capture_command(worker, {0x51U, 0, 0, 0, 0, 0x01U});
+    assert(worker.pending_transmit_bytes() == 1U + kSdDataBlockWireSize);
+    worker.chip_select_released();
+    assert(worker.pending_receive_bytes() == 0U);
+    assert(worker.pending_transmit_bytes() == 0U);
+
     SdSpiTargetWorker<2, 4> constrained_worker(engine);
     assert(constrained_worker.capture_byte(0xffU));
     assert(constrained_worker.capture_byte(0xffU));
