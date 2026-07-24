@@ -66,3 +66,12 @@ configure GPIO5 as an input before enabling the state machine. This primitive
 must **not** be enabled until capture timing and high-impedance idle behavior
 have been verified on hardware; the later response controller will add byte
 queue ownership, response timing, and underrun handling.
+
+## Command-frame handoff
+
+The portable `SdSpiCommandFramer` is the next handoff point between the PIO RX
+byte stream and the SD card model. Firmware will feed each captured MOSI byte
+to it and call `reset()` when CS rises, so bytes from an aborted transaction
+cannot be combined with a later command. The framer ignores idle clocks and
+only starts a frame when the SD SPI command start bits are present; it does not
+perform I/O or produce MISO output.
