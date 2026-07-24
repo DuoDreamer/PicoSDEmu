@@ -1,0 +1,32 @@
+; Original PicoSDEmu MISO transmit primitive.
+; OUT and SET bases must be GPIO5 (client MISO), and the JMP pin must be GPIO2
+; (client CS). The program claims MISO only while CS is low, consumes queued
+; bytes from its TX FIFO, and shifts them MSB first on falling SCK edges.
+; Firmware must still initialize GPIO5 as an input before enabling this state
+; machine.
+
+.program picosd_spi_transmit
+
+.wrap_target
+wait_for_select:
+    wait 0 gpio 2
+load_byte:
+    pull block
+    jmp pin wait_for_select
+    set pindirs, 1
+    set x, 7
+shift_bit:
+    wait 0 gpio 3
+    out pins, 1
+    wait 1 gpio 3
+    jmp pin release_miso
+    jmp x-- shift_bit
+next_byte:
+    set pindirs, 0
+    jmp pin wait_for_select
+    jmp load_byte
+release_miso:
+    set pindirs, 0
+    wait 1 gpio 2
+    jmp wait_for_select
+.wrap
