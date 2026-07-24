@@ -51,6 +51,12 @@ SdCardStateError SdCardStateMachine::finish_busy() {
     return SdCardStateError::None;
 }
 
+SdCardStateError SdCardStateMachine::finish_receiving_data() {
+    if (state_ != SdCardState::ReceivingData) return SdCardStateError::InvalidTransition;
+    state_ = SdCardState::Transfer;
+    return SdCardStateError::None;
+}
+
 void SdCardStateMachine::fault() { state_ = SdCardState::Fault; }
 
 RamBlockBackend::RamBlockBackend(std::size_t block_count)

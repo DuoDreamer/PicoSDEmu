@@ -38,6 +38,19 @@ int main() {
     expect(card.write_block(block, crc16(block.data(), block.size())).bytes[0] == 0U, "CMD24 data writes");
     expect(card.execute(cmd(17, 0)).read_block[4] == 0xa5U, "written data reads back");
 
+    card.execute(cmd(25, 0));
+    SdBlock first_multi_write{};
+    first_multi_write[0] = 0x11U;
+    expect(card.write_block(first_multi_write, crc16(first_multi_write.data(), first_multi_write.size())).bytes[0] == 0U,
+           "CMD25 accepts first multi-block write");
+    SdBlock second_multi_write{};
+    second_multi_write[0] = 0x22U;
+    expect(card.write_block(second_multi_write, crc16(second_multi_write.data(), second_multi_write.size())).bytes[0] == 0U,
+           "CMD25 accepts next multi-block write");
+    expect(card.finish_multi_write(), "multi-block write stop succeeds");
+    expect(card.execute(cmd(17, 0)).read_block[0] == 0x11U, "first multi-block write persists");
+    expect(card.execute(cmd(17, 512)).read_block[0] == 0x22U, "second multi-block write persists");
+
     RamBlockBackend high_capacity_store{16};
     SdCardModel high_capacity{SdCardType::Sdhc, high_capacity_store};
     high_capacity.execute(cmd(0));

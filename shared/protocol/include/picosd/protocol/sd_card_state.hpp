@@ -39,6 +39,7 @@ public:
     SdCardStateError begin_receiving_data();
     SdCardStateError begin_busy();
     SdCardStateError finish_busy();
+    SdCardStateError finish_receiving_data();
     void fault();
 
 private:

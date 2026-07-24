@@ -31,6 +31,7 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         state_.enter_idle();
         command_crc_enabled_ = false;
         multi_read_active_ = false;
+        multi_write_active_ = false;
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::Idle));
         return result;
     }
@@ -90,7 +91,7 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r1(r1_status());
         return result;
     }
-    if ((command.index == 17U || command.index == 18U || command.index == 24U) &&
+    if ((command.index == 17U || command.index == 18U || command.index == 24U || command.index == 25U) &&
         (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
         std::size_t lba = 0;
         if (!command_lba(command.argument, lba)) { result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError)); return result; }
@@ -103,7 +104,11 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
                 next_multi_read_lba_ = lba + 1;
             }
         }
-        else { pending_write_lba_ = lba; state_.begin_receiving_data(); }
+        else {
+            pending_write_lba_ = lba;
+            multi_write_active_ = command.index == 25U;
+            state_.begin_receiving_data();
+        }
         return result;
     }
     result.response = make_r1(static_cast<std::uint8_t>(SdR1::IllegalCommand) | r1_status());
@@ -117,12 +122,26 @@ bool SdCardModel::read_next_multi_block(SdBlock& output) {
     return true;
 }
 
+bool SdCardModel::finish_multi_write() {
+    if (!multi_write_active_) return false;
+    multi_write_active_ = false;
+    return state_.finish_receiving_data() == SdCardStateError::None;
+}
+
 SdResponse SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
     if (state() != SdCardState::ReceivingData || crc16(block.data(), block.size()) != crc) {
         return make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError));
     }
     if (!backend_.write(pending_write_lba_, block)) { state_.fault(); return make_r1(static_cast<std::uint8_t>(SdR1::AddressError)); }
     state_.begin_busy(); state_.finish_busy();
+    if (multi_write_active_) {
+        ++pending_write_lba_;
+        if (pending_write_lba_ < registers_.exposed_blocks) {
+            state_.begin_receiving_data();
+        } else {
+            multi_write_active_ = false;
+        }
+    }
     return make_r1(0U);
 }
 }  // namespace picosd::protocol
