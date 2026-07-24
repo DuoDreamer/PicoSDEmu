@@ -49,5 +49,7 @@ recovery before any client-visible SD response is enabled.
 
 The firmware initializes this capture state machine at boot with automatic
 eight-bit RX FIFO pushes. It does not yet consume the captured bytes in a
-production command decoder; the next hardware task is to expose a bounded trace
-path and validate captures before attaching SD-model responses.
+production command decoder. The capture proof-of-concept emits at most sixteen
+`TRACE_SPI XX` lines per firmware main-loop iteration so USB CDC can expose the
+captured bytes during initial bring-up. This diagnostic path must not remain in
+the timing path once MISO responses or DMA queues are enabled.

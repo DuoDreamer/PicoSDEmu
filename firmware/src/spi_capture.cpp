@@ -1,5 +1,6 @@
 #include "picosd/spi_capture.hpp"
 
+#include <cstdio>
 #include "hardware/pio.h"
 #include "picosd/board_config.hpp"
 #include "sd_spi_capture.pio.h"
@@ -25,6 +26,17 @@ bool try_read_spi_capture_byte(std::uint8_t& output) {
     if (pio_sm_is_rx_fifo_empty(pio, state_machine)) return false;
     output = static_cast<std::uint8_t>(pio_sm_get(pio, state_machine));
     return true;
+}
+
+void poll_spi_capture_trace() {
+    // This is a deliberately bounded diagnostic path for the capture-only
+    // proof of concept. It must be removed from the timing path before SD
+    // responses are enabled.
+    for (unsigned int count = 0; count < 16; ++count) {
+        std::uint8_t byte = 0;
+        if (!try_read_spi_capture_byte(byte)) return;
+        std::printf("TRACE_SPI %02X\n", static_cast<unsigned>(byte));
+    }
 }
 
 }  // namespace picosd::firmware

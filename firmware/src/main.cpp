@@ -35,6 +35,7 @@ int main() {
 
     while (true) {
         picosd::firmware::poll_cdc_shell();
+        picosd::firmware::poll_spi_capture_trace();
         tight_loop_contents();
     }
 }
