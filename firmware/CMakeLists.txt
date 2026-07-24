@@ -23,6 +23,7 @@ pico_sdk_init()
 add_executable(picosd_firmware
     src/cdc_shell.cpp
     src/main.cpp
+    src/spi_capture.cpp
 )
 
 target_include_directories(picosd_firmware PRIVATE
@@ -32,6 +33,7 @@ target_include_directories(picosd_firmware PRIVATE
 
 target_link_libraries(picosd_firmware PRIVATE
     pico_stdlib
+    hardware_pio
 )
 
 target_compile_options(picosd_firmware PRIVATE

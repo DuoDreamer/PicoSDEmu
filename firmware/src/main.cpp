@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
 #include "picosd/cdc_shell.hpp"
+#include "picosd/spi_capture.hpp"
 #include "picosd/protocol/version.hpp"
 
 int main() {
@@ -23,6 +24,7 @@ int main() {
     gpio_disable_pulls(picosd::board::kClientMisoPin);
 
     stdio_init_all();
+    picosd::firmware::initialize_spi_capture();
 
     sleep_ms(1500);
     std::printf("Pico SD Emulator firmware 0.1.0\n");

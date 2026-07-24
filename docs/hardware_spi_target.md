@@ -46,3 +46,8 @@ GPIO4 and its JMP pin for GPIO2 before loading the program.
 This limited capture-only stage is intentional: it permits logic-analyzer and
 second-Pico verification of selection, clocking, bit order, and CS-abort
 recovery before any client-visible SD response is enabled.
+
+The firmware initializes this capture state machine at boot with automatic
+eight-bit RX FIFO pushes. It does not yet consume the captured bytes in a
+production command decoder; the next hardware task is to expose a bounded trace
+path and validate captures before attaching SD-model responses.
