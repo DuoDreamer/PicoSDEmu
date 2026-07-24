@@ -34,3 +34,15 @@ client before connecting it.
   second-Pico exerciser and a logic analyzer before connecting the SC126.
 - Do not rely on a card-detect connection for the initial SC126 adapter; use
   silent/high-impedance SPI absence for simulated removal.
+
+## Initial PIO capture primitive
+
+`firmware/pio/sd_spi_capture.pio` is the first original PIO proof-of-concept
+artifact. It samples MOSI on rising SCK edges while CS is asserted and stops
+capturing when CS deasserts. It does **not** drive MISO, decode bytes, use DMA,
+or emulate an SD response yet. The firmware must configure its IN base for
+GPIO4 and its JMP pin for GPIO2 before loading the program.
+
+This limited capture-only stage is intentional: it permits logic-analyzer and
+second-Pico verification of selection, clocking, bit order, and CS-abort
+recovery before any client-visible SD response is enabled.

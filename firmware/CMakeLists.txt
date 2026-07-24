@@ -40,6 +40,10 @@ target_compile_options(picosd_firmware PRIVATE
     -Wpedantic
 )
 
+pico_generate_pio_header(picosd_firmware
+    ${CMAKE_CURRENT_LIST_DIR}/pio/sd_spi_capture.pio
+)
+
 pico_enable_stdio_usb(picosd_firmware 1)
 pico_enable_stdio_uart(picosd_firmware 0)
 pico_add_extra_outputs(picosd_firmware)
