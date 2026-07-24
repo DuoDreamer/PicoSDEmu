@@ -11,6 +11,8 @@ int main() {
     expect(!card.command_crc_enabled(), "command CRC starts disabled");
     expect(card.execute(cmd(59, 1)).response.bytes[0] == 1U && card.command_crc_enabled(),
            "CMD59 enables command CRC while idle");
+    expect(card.execute(cmd(0)).response.bytes[0] == 1U && !card.command_crc_enabled(),
+           "CMD0 clears command CRC mode");
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
     card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");
