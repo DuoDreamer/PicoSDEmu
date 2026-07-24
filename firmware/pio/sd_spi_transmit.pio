@@ -1,0 +1,17 @@
+; Original PicoSDEmu MISO transmit primitive.
+; OUT base must be GPIO5 (client MISO). The program consumes one byte from its
+; TX FIFO and shifts it MSB first on falling SCK edges. It has no CS handling
+; or GPIO-direction control: firmware must only enable it for an active,
+; validated client transaction after the capture proof-of-concept is verified.
+
+.program picosd_spi_transmit
+
+.wrap_target
+    pull block
+    set x, 7
+shift_bit:
+    wait 0 gpio 3
+    out pins, 1
+    wait 1 gpio 3
+    jmp x-- shift_bit
+.wrap

@@ -54,3 +54,13 @@ default. A development terminal can send `TRACE_ON` or `TRACE_OFF` over USB CDC;
 when enabled, it emits at most sixteen `TRACE_SPI XX` lines per firmware
 main-loop iteration. This diagnostic path must not remain in the timing path
 once MISO responses or DMA queues are enabled.
+
+## Deferred MISO transmit primitive
+
+`firmware/pio/sd_spi_transmit.pio` is an original transmit-only primitive
+prepared for the next stage. It shifts one queued byte onto GPIO5 on falling
+SCK edges so a client can sample it on rising edges. It has no CS handling and
+does not manage MISO direction; it must **not** be enabled until capture timing
+and high-impedance idle behavior have been verified on hardware. The later
+response controller will explicitly switch MISO from input/high-impedance to
+PIO output only for an active response, then return it to high impedance.
