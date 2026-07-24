@@ -59,8 +59,10 @@ once MISO responses or DMA queues are enabled.
 
 `firmware/pio/sd_spi_transmit.pio` is an original transmit-only primitive
 prepared for the next stage. It shifts one queued byte onto GPIO5 on falling
-SCK edges so a client can sample it on rising edges. It has no CS handling and
-does not manage MISO direction; it must **not** be enabled until capture timing
-and high-impedance idle behavior have been verified on hardware. The later
-response controller will explicitly switch MISO from input/high-impedance to
-PIO output only for an active response, then return it to high impedance.
+SCK edges so a client can sample it on rising edges. It uses CS as its jump pin,
+changes GPIO5 to a PIO output only while CS is low, and returns it to an input
+when CS is released or it is waiting for the next queued byte. Firmware must
+configure GPIO5 as an input before enabling the state machine. This primitive
+must **not** be enabled until capture timing and high-impedance idle behavior
+have been verified on hardware; the later response controller will add byte
+queue ownership, response timing, and underrun handling.
