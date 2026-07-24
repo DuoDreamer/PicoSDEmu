@@ -75,3 +75,9 @@ to it and call `reset()` when CS rises, so bytes from an aborted transaction
 cannot be combined with a later command. The framer ignores idle clocks and
 only starts a frame when the SD SPI command start bits are present; it does not
 perform I/O or produce MISO output.
+
+`SdSpiDataFramer` provides the equivalent handoff after the model accepts a
+single- or multi-block write command. It extracts a start token, 512-byte
+payload, and CRC16, and recognizes the multi-block stop token. The firmware
+will pass completed events to the model, which validates the CRC and decides
+the data-response and busy behavior.
