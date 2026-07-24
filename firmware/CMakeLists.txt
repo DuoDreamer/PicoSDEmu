@@ -20,9 +20,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 pico_sdk_init()
 
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../shared/protocol
+    ${CMAKE_CURRENT_BINARY_DIR}/shared_protocol
+)
+
 add_executable(picosd_firmware
     src/cdc_shell.cpp
     src/main.cpp
+    src/sd_target_monitor.cpp
     src/spi_capture.cpp
 )
 
@@ -34,6 +39,7 @@ target_include_directories(picosd_firmware PRIVATE
 target_link_libraries(picosd_firmware PRIVATE
     pico_stdlib
     hardware_pio
+    picosd-protocol-core
 )
 
 target_compile_options(picosd_firmware PRIVATE

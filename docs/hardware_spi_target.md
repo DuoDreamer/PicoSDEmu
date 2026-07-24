@@ -105,3 +105,13 @@ response atomically when the transmit queue lacks capacity, and exposes receive
 and transmit overflow counters for firmware diagnostics. On CS release it
 discards both pending receive and transmit bytes, preventing a stale response
 from crossing into the next client transaction.
+
+## Firmware target monitor
+
+The firmware now links the portable protocol core into the Pico target and
+provides a `TARGET_TRACE_ON` CDC diagnostic mode. In that mode captured MOSI
+bytes are fed through the portable target worker, decoded responses are printed
+as `TRACE_TARGET_TX` records over USB, and the physical MISO pin remains
+input/high-impedance. This is intentionally a visibility tool rather than a
+timing path: transmit bytes are discarded after tracing until the PIO transmit
+state machine and DMA handoff are hardware-validated.

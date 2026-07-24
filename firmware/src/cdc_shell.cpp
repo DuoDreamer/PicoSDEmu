@@ -5,6 +5,7 @@
 
 #include "pico/stdlib.h"
 #include "picosd/protocol/version.hpp"
+#include "picosd/sd_target_monitor.hpp"
 #include "picosd/spi_capture.hpp"
 
 namespace picosd::firmware {
@@ -29,6 +30,13 @@ void handle_line() {
     } else if (std::strcmp(line, "TRACE_OFF") == 0) {
         set_spi_capture_trace_enabled(false);
         respond("OK trace=off");
+    } else if (std::strcmp(line, "TARGET_TRACE_ON") == 0) {
+        set_spi_capture_trace_enabled(false);
+        set_sd_target_monitor_trace_enabled(true);
+        respond("OK target_trace=on miso=passive");
+    } else if (std::strcmp(line, "TARGET_TRACE_OFF") == 0) {
+        set_sd_target_monitor_trace_enabled(false);
+        respond("OK target_trace=off");
     } else {
         respond("ERR id=0 code=UNSUPPORTED");
     }

@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
 #include "picosd/cdc_shell.hpp"
+#include "picosd/sd_target_monitor.hpp"
 #include "picosd/spi_capture.hpp"
 #include "picosd/protocol/version.hpp"
 
@@ -25,6 +26,7 @@ int main() {
 
     stdio_init_all();
     picosd::firmware::initialize_spi_capture();
+    picosd::firmware::initialize_sd_target_monitor();
 
     sleep_ms(1500);
     std::printf("Pico SD Emulator firmware 0.1.0\n");
@@ -35,7 +37,9 @@ int main() {
 
     while (true) {
         picosd::firmware::poll_cdc_shell();
-        picosd::firmware::poll_spi_capture_trace();
+        if (!picosd::firmware::poll_sd_target_monitor()) {
+            picosd::firmware::poll_spi_capture_trace();
+        }
         tight_loop_contents();
     }
 }
