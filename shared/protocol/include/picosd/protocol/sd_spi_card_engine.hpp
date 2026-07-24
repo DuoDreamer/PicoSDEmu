@@ -32,6 +32,9 @@ public:
 private:
     void append_response(SdSpiEngineOutput& output, const SdResponse& response);
     void append_read_block(SdSpiEngineOutput& output, const SdBlock& block);
+    void append_register_data(
+        SdSpiEngineOutput& output,
+        const std::array<std::uint8_t, 16>& register_data);
 
     SdCardModel& model_;
     SdSpiCommandFramer command_framer_;

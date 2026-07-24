@@ -37,6 +37,18 @@ int main() {
     SdSpiCardEngine engine(model);
     initialize(engine);
 
+    const auto csd = send_command(engine, {0x49U, 0, 0, 0, 0, 0x01U});
+    assert(csd.size == 1U + 1U + model.registers().csd.size() + 2U);
+    assert(csd.bytes[0] == 0x00U);
+    assert(csd.bytes[1] == picosd::protocol::kSdStartBlockToken);
+    for (std::size_t index = 0; index < model.registers().csd.size(); ++index) {
+        assert(csd.bytes[2U + index] == model.registers().csd[index]);
+    }
+    const std::uint16_t csd_crc = picosd::protocol::crc16(
+        model.registers().csd.data(), model.registers().csd.size());
+    assert(csd.bytes[18] == static_cast<std::uint8_t>(csd_crc >> 8U));
+    assert(csd.bytes[19] == static_cast<std::uint8_t>(csd_crc));
+
     const auto read = send_command(engine, {0x51U, 0, 0, 0, 0, 0x01U});
     assert(read.size == 1U + picosd::protocol::kSdDataBlockWireSize);
     assert(read.bytes[0] == 0x00U);

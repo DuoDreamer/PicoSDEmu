@@ -87,4 +87,5 @@ the later byte-queue worker. It produces bounded response byte sequences but
 does not access PIO, DMA, GPIO, USB, or blocking storage, keeping electrical
 and timing policy outside the portable protocol core. Its CS-release hook also
 abandons an incomplete write frame so the model can recover for the next client
-transaction.
+transaction. CMD9/CMD10 register payloads are serialized with the normal data
+token and CRC16 format before they enter the transmit queue.
