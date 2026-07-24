@@ -98,3 +98,8 @@ stops when CMD12 or the backend capacity ends the sequence.
 future PIO/DMA-to-engine and engine-to-transmit handoffs. Its `try_push` and
 `try_pop` operations make full and empty conditions explicit so firmware can
 count queue overflow and underrun rather than silently losing SPI bytes.
+
+`SdSpiTargetWorker` applies that queue policy to captured bytes and serialized
+engine outputs. It uses bounded processing, preserves FIFO order, drops a
+response atomically when the transmit queue lacks capacity, and exposes receive
+and transmit overflow counters for firmware diagnostics.

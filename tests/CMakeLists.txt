@@ -136,6 +136,19 @@ else()
 endif()
 add_test(NAME picosd.protocol.sd_spi_card_engine COMMAND picosd-sd-spi-card-engine-tests)
 
+add_executable(picosd-sd-spi-target-worker-tests
+    sd_spi_target_worker_tests.cpp
+)
+target_link_libraries(picosd-sd-spi-target-worker-tests PRIVATE picosd-protocol-core)
+target_compile_features(picosd-sd-spi-target-worker-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-sd-spi-target-worker-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-sd-spi-target-worker-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-sd-spi-target-worker-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.protocol.sd_spi_target_worker COMMAND picosd-sd-spi-target-worker-tests)
+
 add_executable(picosd-sd-card-state-tests sd_card_state_tests.cpp)
 target_link_libraries(picosd-sd-card-state-tests PRIVATE picosd-protocol-core)
 target_compile_features(picosd-sd-card-state-tests PRIVATE cxx_std_17)

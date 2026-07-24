@@ -17,6 +17,7 @@ public:
     [[nodiscard]] bool empty() const { return size_ == 0; }
     [[nodiscard]] bool full() const { return size_ == Capacity; }
     [[nodiscard]] std::size_t size() const { return size_; }
+    [[nodiscard]] std::size_t available() const { return Capacity - size_; }
 
     bool try_push(const T& value) {
         if (full()) return false;
