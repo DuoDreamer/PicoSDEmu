@@ -1,0 +1,20 @@
+; Original PicoSDEmu SPI-target capture primitive.
+; GPIO2 is client CS, GPIO3 is SCK, and IN base must be configured for GPIO4
+; (MOSI). The state machine captures one MOSI bit per rising SCK edge only
+; while CS remains asserted. It intentionally never drives MISO.
+
+.program picosd_spi_capture
+
+.wrap_target
+wait_for_select:
+    wait 0 gpio 2
+capture_bit:
+    wait 1 gpio 3
+    in pins, 1
+    wait 0 gpio 3
+    jmp pin capture_done
+    jmp capture_bit
+capture_done:
+    wait 1 gpio 2
+    jmp wait_for_select
+.wrap
