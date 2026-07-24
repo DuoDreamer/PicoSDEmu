@@ -88,4 +88,6 @@ does not access PIO, DMA, GPIO, USB, or blocking storage, keeping electrical
 and timing policy outside the portable protocol core. Its CS-release hook also
 abandons an incomplete write frame so the model can recover for the next client
 transaction. CMD9/CMD10 register payloads are serialized with the normal data
-token and CRC16 format before they enter the transmit queue.
+token and CRC16 format before they enter the transmit queue. For CMD18, the
+queue worker calls `next_multi_read_block()` after sending each data block and
+stops when CMD12 or the backend capacity ends the sequence.

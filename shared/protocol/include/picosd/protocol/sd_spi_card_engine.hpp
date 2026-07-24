@@ -27,6 +27,7 @@ public:
     explicit SdSpiCardEngine(SdCardModel& model);
 
     [[nodiscard]] std::optional<SdSpiEngineOutput> push_byte(std::uint8_t byte);
+    [[nodiscard]] std::optional<SdSpiEngineOutput> next_multi_read_block();
     void chip_select_released();
 
 private:

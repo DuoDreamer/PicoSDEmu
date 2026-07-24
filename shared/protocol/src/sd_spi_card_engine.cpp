@@ -49,6 +49,15 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
     return output;
 }
 
+std::optional<SdSpiEngineOutput> SdSpiCardEngine::next_multi_read_block() {
+    SdBlock block{};
+    if (!model_.read_next_multi_block(block)) return std::nullopt;
+
+    SdSpiEngineOutput output;
+    append_read_block(output, block);
+    return output;
+}
+
 void SdSpiCardEngine::chip_select_released() {
     command_framer_.reset();
     data_framer_.reset();

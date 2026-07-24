@@ -56,6 +56,17 @@ int main() {
     assert(read.bytes[2] == 0x00U);
     assert(read.bytes[513] == 0xffU);
 
+    const auto multi_read = send_command(engine, {0x52U, 0, 0, 0, 0, 0x01U});
+    assert(multi_read.size == 1U + picosd::protocol::kSdDataBlockWireSize);
+    assert(multi_read.bytes[2] == 0x00U);
+    const auto next_multi_read = engine.next_multi_read_block();
+    assert(next_multi_read.has_value());
+    assert(next_multi_read->size == picosd::protocol::kSdDataBlockWireSize);
+    assert(next_multi_read->bytes[0] == picosd::protocol::kSdStartBlockToken);
+    assert(next_multi_read->bytes[1] == 37U);
+    assert(send_command(engine, {0x4cU, 0, 0, 0, 0, 0x01U}).bytes[0] == 0x00U);
+    assert(!engine.next_multi_read_block().has_value());
+
     const auto write_command = send_command(engine, {0x58U, 0, 0, 2, 0, 0x01U});
     assert(write_command.bytes[0] == 0x00U);
     std::array<std::uint8_t, 512> payload{};
