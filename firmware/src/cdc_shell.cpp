@@ -5,6 +5,7 @@
 
 #include "pico/stdlib.h"
 #include "picosd/protocol/version.hpp"
+#include "picosd/spi_capture.hpp"
 
 namespace picosd::firmware {
 namespace {
@@ -22,6 +23,12 @@ void handle_line() {
         std::printf("OK id=%s present=0 type=NONE blocks=0 block_size=512 readonly=1\n", line + 12);
     } else if (std::strncmp(line, "EJECT id=", 9) == 0 || std::strncmp(line, "FLUSH id=", 9) == 0) {
         std::printf("OK id=%s\n", line + 9);
+    } else if (std::strcmp(line, "TRACE_ON") == 0) {
+        set_spi_capture_trace_enabled(true);
+        respond("OK trace=on");
+    } else if (std::strcmp(line, "TRACE_OFF") == 0) {
+        set_spi_capture_trace_enabled(false);
+        respond("OK trace=off");
     } else {
         respond("ERR id=0 code=UNSUPPORTED");
     }

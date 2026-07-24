@@ -49,7 +49,8 @@ recovery before any client-visible SD response is enabled.
 
 The firmware initializes this capture state machine at boot with automatic
 eight-bit RX FIFO pushes. It does not yet consume the captured bytes in a
-production command decoder. The capture proof-of-concept emits at most sixteen
-`TRACE_SPI XX` lines per firmware main-loop iteration so USB CDC can expose the
-captured bytes during initial bring-up. This diagnostic path must not remain in
-the timing path once MISO responses or DMA queues are enabled.
+production command decoder. The capture proof-of-concept trace is disabled by
+default. A development terminal can send `TRACE_ON` or `TRACE_OFF` over USB CDC;
+when enabled, it emits at most sixteen `TRACE_SPI XX` lines per firmware
+main-loop iteration. This diagnostic path must not remain in the timing path
+once MISO responses or DMA queues are enabled.

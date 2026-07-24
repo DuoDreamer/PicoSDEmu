@@ -9,5 +9,6 @@ namespace picosd::firmware {
 void initialize_spi_capture();
 bool try_read_spi_capture_byte(std::uint8_t& output);
 void poll_spi_capture_trace();
+void set_spi_capture_trace_enabled(bool enabled);
 
 }  // namespace picosd::firmware

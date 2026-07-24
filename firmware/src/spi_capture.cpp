@@ -9,6 +9,7 @@ namespace picosd::firmware {
 namespace {
 PIO pio = pio0;
 unsigned int state_machine = 0;
+bool trace_enabled = false;
 }
 
 void initialize_spi_capture() {
@@ -32,11 +33,14 @@ void poll_spi_capture_trace() {
     // This is a deliberately bounded diagnostic path for the capture-only
     // proof of concept. It must be removed from the timing path before SD
     // responses are enabled.
+    if (!trace_enabled) return;
     for (unsigned int count = 0; count < 16; ++count) {
         std::uint8_t byte = 0;
         if (!try_read_spi_capture_byte(byte)) return;
         std::printf("TRACE_SPI %02X\n", static_cast<unsigned>(byte));
     }
 }
+
+void set_spi_capture_trace_enabled(bool enabled) { trace_enabled = enabled; }
 
 }  // namespace picosd::firmware
