@@ -19,6 +19,21 @@ endif()
 
 add_test(NAME picosd.protocol.version COMMAND picosd-protocol-version-tests)
 
+add_executable(picosd-fixed-ring-queue-tests
+    fixed_ring_queue_tests.cpp
+)
+target_include_directories(picosd-fixed-ring-queue-tests PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../shared/protocol/include
+)
+target_compile_features(picosd-fixed-ring-queue-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-fixed-ring-queue-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-fixed-ring-queue-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-fixed-ring-queue-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.protocol.fixed_ring_queue COMMAND picosd-fixed-ring-queue-tests)
+
 add_executable(picosd-crc-tests
     crc_tests.cpp
 )

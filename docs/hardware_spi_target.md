@@ -91,3 +91,10 @@ transaction. CMD9/CMD10 register payloads are serialized with the normal data
 token and CRC16 format before they enter the transmit queue. For CMD18, the
 queue worker calls `next_multi_read_block()` after sending each data block and
 stops when CMD12 or the backend capacity ends the sequence.
+
+## Bounded queue primitive
+
+`FixedRingQueue` is the project-owned, allocation-free FIFO intended for the
+future PIO/DMA-to-engine and engine-to-transmit handoffs. Its `try_push` and
+`try_pop` operations make full and empty conditions explicit so firmware can
+count queue overflow and underrun rather than silently losing SPI bytes.
