@@ -108,6 +108,19 @@ else()
 endif()
 add_test(NAME picosd.protocol.sd_spi_data_framer COMMAND picosd-sd-spi-data-framer-tests)
 
+add_executable(picosd-sd-spi-card-engine-tests
+    sd_spi_card_engine_tests.cpp
+)
+target_link_libraries(picosd-sd-spi-card-engine-tests PRIVATE picosd-protocol-core)
+target_compile_features(picosd-sd-spi-card-engine-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-sd-spi-card-engine-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-sd-spi-card-engine-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-sd-spi-card-engine-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.protocol.sd_spi_card_engine COMMAND picosd-sd-spi-card-engine-tests)
+
 add_executable(picosd-sd-card-state-tests sd_card_state_tests.cpp)
 target_link_libraries(picosd-sd-card-state-tests PRIVATE picosd-protocol-core)
 target_compile_features(picosd-sd-card-state-tests PRIVATE cxx_std_17)

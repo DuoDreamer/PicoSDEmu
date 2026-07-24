@@ -81,3 +81,10 @@ single- or multi-block write command. It extracts a start token, 512-byte
 payload, and CRC16, and recognizes the multi-block stop token. The firmware
 will pass completed events to the model, which validates the CRC and decides
 the data-response and busy behavior.
+
+`SdSpiCardEngine` composes the command and data framers with `SdCardModel` for
+the later byte-queue worker. It produces bounded response byte sequences but
+does not access PIO, DMA, GPIO, USB, or blocking storage, keeping electrical
+and timing policy outside the portable protocol core. Its CS-release hook also
+abandons an incomplete write frame so the model can recover for the next client
+transaction.

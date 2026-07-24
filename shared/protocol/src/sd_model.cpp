@@ -128,6 +128,11 @@ bool SdCardModel::finish_multi_write() {
     return state_.finish_receiving_data() == SdCardStateError::None;
 }
 
+void SdCardModel::abort_pending_write() {
+    if (state() == SdCardState::ReceivingData) state_.finish_receiving_data();
+    multi_write_active_ = false;
+}
+
 SdWriteResult SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
     SdWriteResult result;
     if (state() != SdCardState::ReceivingData || crc16(block.data(), block.size()) != crc) {

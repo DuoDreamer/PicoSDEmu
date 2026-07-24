@@ -29,6 +29,7 @@ public:
     SdModelResult execute(const SdCommand& command);
     bool read_next_multi_block(SdBlock& output);
     bool finish_multi_write();
+    void abort_pending_write();
     SdWriteResult write_block(const SdBlock& block, std::uint16_t crc);
 
 private:
