@@ -14,6 +14,12 @@ struct SdModelResult {
     std::array<std::uint8_t, 16> register_data{};
 };
 
+struct SdWriteResult {
+    SdResponse response{};
+    std::uint8_t data_response = kSdDataResponseWriteError;
+    bool busy = false;
+};
+
 class SdCardModel {
 public:
     SdCardModel(SdCardType type, RamBlockBackend& backend);
@@ -23,7 +29,7 @@ public:
     SdModelResult execute(const SdCommand& command);
     bool read_next_multi_block(SdBlock& output);
     bool finish_multi_write();
-    SdResponse write_block(const SdBlock& block, std::uint16_t crc);
+    SdWriteResult write_block(const SdBlock& block, std::uint16_t crc);
 
 private:
     [[nodiscard]] bool command_lba(std::uint32_t argument, std::size_t& lba) const;

@@ -128,12 +128,23 @@ bool SdCardModel::finish_multi_write() {
     return state_.finish_receiving_data() == SdCardStateError::None;
 }
 
-SdResponse SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
+SdWriteResult SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
+    SdWriteResult result;
     if (state() != SdCardState::ReceivingData || crc16(block.data(), block.size()) != crc) {
-        return make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError));
+        result.response = make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError));
+        result.data_response = make_data_response(kSdDataResponseCrcError);
+        return result;
     }
-    if (!backend_.write(pending_write_lba_, block)) { state_.fault(); return make_r1(static_cast<std::uint8_t>(SdR1::AddressError)); }
+    if (!backend_.write(pending_write_lba_, block)) {
+        state_.fault();
+        result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError));
+        result.data_response = make_data_response(kSdDataResponseWriteError);
+        return result;
+    }
     state_.begin_busy(); state_.finish_busy();
+    result.response = make_r1(0U);
+    result.data_response = make_data_response(kSdDataResponseAccepted);
+    result.busy = true;
     if (multi_write_active_) {
         ++pending_write_lba_;
         if (pending_write_lba_ < registers_.exposed_blocks) {
@@ -142,6 +153,6 @@ SdResponse SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
             multi_write_active_ = false;
         }
     }
-    return make_r1(0U);
+    return result;
 }
 }  // namespace picosd::protocol

@@ -35,17 +35,26 @@ int main() {
     expect(!card.read_next_multi_block(next_multi_read), "CMD12 stops multi-block reads");
     expect(card.execute(cmd(17, 1)).response.bytes[0] == static_cast<std::uint8_t>(SdR1::AddressError), "unaligned SDSC address rejected");
     card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;
-    expect(card.write_block(block, crc16(block.data(), block.size())).bytes[0] == 0U, "CMD24 data writes");
+    const auto single_write = card.write_block(block, crc16(block.data(), block.size()));
+    expect(single_write.response.bytes[0] == 0U && single_write.data_response == kSdDataResponseAccepted && single_write.busy,
+           "CMD24 data write is accepted and busy");
     expect(card.execute(cmd(17, 0)).read_block[4] == 0xa5U, "written data reads back");
+    card.execute(cmd(24, 1024));
+    const auto bad_write = card.write_block(block, 0U);
+    expect(bad_write.data_response == kSdDataResponseCrcError && !bad_write.busy,
+           "bad write CRC is rejected without busy");
+    card.execute(cmd(0));
+    card.execute(cmd(55));
+    card.execute(cmd(41));
 
     card.execute(cmd(25, 0));
     SdBlock first_multi_write{};
     first_multi_write[0] = 0x11U;
-    expect(card.write_block(first_multi_write, crc16(first_multi_write.data(), first_multi_write.size())).bytes[0] == 0U,
+    expect(card.write_block(first_multi_write, crc16(first_multi_write.data(), first_multi_write.size())).response.bytes[0] == 0U,
            "CMD25 accepts first multi-block write");
     SdBlock second_multi_write{};
     second_multi_write[0] = 0x22U;
-    expect(card.write_block(second_multi_write, crc16(second_multi_write.data(), second_multi_write.size())).bytes[0] == 0U,
+    expect(card.write_block(second_multi_write, crc16(second_multi_write.data(), second_multi_write.size())).response.bytes[0] == 0U,
            "CMD25 accepts next multi-block write");
     expect(card.finish_multi_write(), "multi-block write stop succeeds");
     expect(card.execute(cmd(17, 0)).read_block[0] == 0x11U, "first multi-block write persists");
