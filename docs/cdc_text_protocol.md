@@ -24,7 +24,9 @@ normal image-serving peer.
 Host serial reads are non-blocking. An incomplete line is retained across
 polls and reported internally as `WouldBlock`; it is not treated as malformed
 input or a disconnected device. This distinction allows fragmented and
-coalesced USB CDC transfers to use the same line parser.
+coalesced USB CDC transfers to use the same line parser. An unterminated line
+that exceeds the maximum length closes the host endpoint, bounding retained
+input and requiring a clean reconnect rather than attempting stream recovery.
 
 ## Requests and responses
 

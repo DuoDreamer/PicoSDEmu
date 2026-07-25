@@ -79,7 +79,44 @@ void test_posix_transport() {
     const auto count = ::read(controller, response, sizeof(response));
     expect(count == 11 && std::string(response, static_cast<std::size_t>(count)) == "HELLO id=9\n",
            "POSIX peer receives newline-terminated line");
+    expect(::close(controller) == 0, "closes pseudo-terminal peer");
+    expect(transport.read_line(line) == CdcTransportError::NotOpen,
+           "reports disconnected POSIX peer");
     transport.close();
+}
+
+void test_posix_oversized_input() {
+    using namespace picosd::host;
+    const int controller = ::posix_openpt(O_RDWR | O_NOCTTY);
+    expect(controller >= 0, "creates oversized-input pseudo-terminal");
+    if (controller < 0) return;
+    expect(::grantpt(controller) == 0 && ::unlockpt(controller) == 0,
+           "prepares oversized-input pseudo-terminal");
+    const char* endpoint = ::ptsname(controller);
+    expect(endpoint != nullptr, "gets oversized-input endpoint");
+    if (endpoint == nullptr) {
+        ::close(controller);
+        return;
+    }
+
+    PosixCdcTransport transport;
+    expect(transport.open(endpoint) == CdcTransportError::None,
+           "opens oversized-input endpoint");
+    const std::string oversized_line(2049, 'X');
+    expect(::write(controller, oversized_line.data(), oversized_line.size()) ==
+               static_cast<ssize_t>(oversized_line.size()),
+           "writes oversized unterminated line");
+
+    std::string line;
+    CdcTransportError result = CdcTransportError::WouldBlock;
+    for (std::size_t attempt = 0;
+         attempt < 16 && result == CdcTransportError::WouldBlock;
+         ++attempt) {
+        result = transport.read_line(line);
+    }
+    expect(result == CdcTransportError::LineTooLong,
+           "rejects oversized unterminated line");
+    expect(!transport.is_open(), "closes endpoint after oversized input");
     ::close(controller);
 }
 #endif
@@ -89,6 +126,7 @@ int main() {
     test_memory_transport();
 #if !defined(_WIN32)
     test_posix_transport();
+    test_posix_oversized_input();
 #endif
     return failures == 0 ? 0 : 1;
 }
