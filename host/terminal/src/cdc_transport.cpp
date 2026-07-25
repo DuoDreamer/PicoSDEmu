@@ -25,7 +25,7 @@ CdcTransportError MemoryCdcTransport::write_line(std::string_view line) {
 }
 CdcTransportError MemoryCdcTransport::read_line(std::string& line) {
     if (!open_) return CdcTransportError::NotOpen;
-    if (received_lines_.empty()) return CdcTransportError::InvalidLine;
+    if (received_lines_.empty()) return CdcTransportError::WouldBlock;
     line = received_lines_.front(); received_lines_.pop_front();
     return CdcTransportError::None;
 }

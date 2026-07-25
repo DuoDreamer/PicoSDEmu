@@ -217,7 +217,12 @@ else()
     target_compile_options(picosd-host-serve-options-tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 add_test(NAME picosd.host.serve_options COMMAND picosd-host-serve-options-tests)
-add_executable(picosd-host-cdc-transport-tests cdc_transport_tests.cpp ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/cdc_transport.cpp)
+add_executable(picosd-host-cdc-transport-tests
+    cdc_transport_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/cdc_transport.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/posix_cdc_transport.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/windows_cdc_transport.cpp
+)
 target_include_directories(picosd-host-cdc-transport-tests PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src)
 target_compile_features(picosd-host-cdc-transport-tests PRIVATE cxx_std_17)
 set_target_properties(picosd-host-cdc-transport-tests PROPERTIES CXX_EXTENSIONS OFF)

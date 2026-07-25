@@ -31,12 +31,24 @@ CdcTransportError WindowsCdcTransport::write_line(std::string_view line) {
 }
 CdcTransportError WindowsCdcTransport::read_line(std::string& line) {
     if (!is_open()) return CdcTransportError::NotOpen;
+    auto newline = pending_.find('\n');
+    if (newline != std::string::npos) {
+        line = pending_.substr(0, newline); pending_.erase(0, newline + 1); if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.size() > kMaximumLineLength) return CdcTransportError::LineTooLong;
+        return line.empty() ? CdcTransportError::InvalidLine : CdcTransportError::None;
+    }
     char bytes[256]; DWORD count = 0;
     if (!ReadFile(static_cast<HANDLE>(handle_), bytes, sizeof(bytes), &count, nullptr)) return CdcTransportError::NotOpen;
-    pending_.append(bytes, count); const auto newline = pending_.find('\n');
-    if (newline == std::string::npos) return pending_.size() > kMaximumLineLength ? CdcTransportError::LineTooLong : CdcTransportError::InvalidLine;
+    if (count == 0) return CdcTransportError::WouldBlock;
+    pending_.append(bytes, count); newline = pending_.find('\n');
+    if (newline == std::string::npos) {
+        if (pending_.size() <= kMaximumLineLength) return CdcTransportError::WouldBlock;
+        close();
+        return CdcTransportError::LineTooLong;
+    }
     line = pending_.substr(0, newline); pending_.erase(0, newline + 1); if (!line.empty() && line.back() == '\r') line.pop_back();
-    return line.empty() || line.size() > kMaximumLineLength ? CdcTransportError::InvalidLine : CdcTransportError::None;
+    if (line.size() > kMaximumLineLength) return CdcTransportError::LineTooLong;
+    return line.empty() ? CdcTransportError::InvalidLine : CdcTransportError::None;
 }
 }  // namespace picosd::host
 #endif

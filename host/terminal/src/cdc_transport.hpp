@@ -7,7 +7,7 @@
 
 namespace picosd::host {
 
-enum class CdcTransportError { None, NotOpen, LineTooLong, InvalidLine };
+enum class CdcTransportError { None, WouldBlock, NotOpen, LineTooLong, InvalidLine };
 
 // Host-facing USB CDC transport boundary. Platform serial implementations will
 // supply bytes; the session layer consumes complete newline-delimited lines.

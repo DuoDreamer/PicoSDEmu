@@ -21,6 +21,11 @@ normal image-serving peer.
   `_`, `.`, `-`, and `:` where appropriate. The generic parser permits other
   printable token characters; each command handler enforces its own schema.
 
+Host serial reads are non-blocking. An incomplete line is retained across
+polls and reported internally as `WouldBlock`; it is not treated as malformed
+input or a disconnected device. This distinction allows fragmented and
+coalesced USB CDC transfers to use the same line parser.
+
 ## Requests and responses
 
 Every programmatic request includes a decimal `id` field chosen by its sender.
