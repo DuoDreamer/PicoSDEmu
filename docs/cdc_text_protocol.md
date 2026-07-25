@@ -14,7 +14,9 @@ normal image-serving peer.
   fields, and more than 16 tokens.
 - Tokens are separated by ASCII spaces or tabs. The first token is the command;
   remaining tokens use `key=value` form. Keys and values must be nonempty; a
-  value may itself contain `=` so that padded base64 is representable.
+  value may itself contain `=` so that padded base64 is representable. Field
+  keys must be unique; duplicate keys make the entire line invalid rather than
+  allowing different components to select different values.
 - A line carries no implicit binary payload. Block data is one non-whitespace
   `data=` field encoded as base64 for normal use or hex for diagnostics.
 - Command names, keys, values, and error codes use uppercase ASCII with digits,

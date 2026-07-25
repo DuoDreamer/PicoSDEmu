@@ -53,6 +53,11 @@ int main() {
                  "field without value is rejected");
     expect_error("GET=INFO id=1", picosd::protocol::TextLineError::InvalidCharacter,
                  "command containing equals is rejected");
+    expect_error("GET_INFO id=1 id=2", picosd::protocol::TextLineError::DuplicateKey,
+                 "duplicate request id is rejected");
+    expect_error("GET_INFO session=current session=stale",
+                 picosd::protocol::TextLineError::DuplicateKey,
+                 "duplicate session is rejected");
     expect_error(std::string{"GET_INFO id=1\x01"}, picosd::protocol::TextLineError::InvalidCharacter,
                  "control character is rejected");
 

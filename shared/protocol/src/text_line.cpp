@@ -28,6 +28,10 @@ bool is_valid_token(std::string_view token, bool is_command) {
            equals_position + 1 < token.size();
 }
 
+std::string_view field_key(std::string_view token) {
+    return token.substr(0, token.find('='));
+}
+
 }  // namespace
 
 std::string_view TextLine::command() const {
@@ -78,6 +82,14 @@ TextLineError parse_text_line(std::string_view input, TextLine& output) {
         const std::string_view token = input.substr(token_start, position - token_start);
         if (!is_valid_token(token, output.token_count == 0)) {
             return TextLineError::InvalidCharacter;
+        }
+        if (output.token_count != 0) {
+            const auto key = field_key(token);
+            for (std::size_t index = 1; index < output.token_count; ++index) {
+                if (field_key(output.tokens[index]) == key) {
+                    return TextLineError::DuplicateKey;
+                }
+            }
         }
         output.tokens[output.token_count] = token;
         ++output.token_count;

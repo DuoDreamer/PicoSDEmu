@@ -33,6 +33,9 @@ int main() {
     picosd::host::ImageFile image;
     expect(image.open(path, true), "opens image");
     picosd::host::SessionDispatcher session{image, "SDSC", true, "test-session"};
+    expect(session.dispatch("HELLO id=1 id=2 version=0.1") ==
+               "ERR id=0 code=BAD_LINE",
+           "rejects ambiguous duplicate fields before negotiation");
     expect(session.dispatch("HELLO id=invalid version=0.1") ==
                "ERR id=invalid code=BAD_ID",
            "requires a positive decimal request id");

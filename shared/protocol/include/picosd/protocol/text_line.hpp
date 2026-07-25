@@ -13,6 +13,7 @@ enum class TextLineError {
     Empty,
     ContainsLineTerminator,
     InvalidCharacter,
+    DuplicateKey,
     TooManyTokens,
 };
 
@@ -29,6 +30,8 @@ struct TextLine {
 // field and consists only of printable ASCII characters other than '=' for a
 // command, or printable ASCII characters with a nonempty key and value for a
 // field. A field value may contain '=' so padded base64 is representable.
+// Field keys must be unique so command handlers cannot interpret an ambiguous
+// security- or routing-sensitive value.
 TextLineError parse_text_line(std::string_view input, TextLine& output);
 
 }  // namespace picosd::protocol
