@@ -35,9 +35,16 @@ Responses repeat that `id`, allowing the host program to correlate requests.
 
 ```text
 HELLO id=1 version=0.1
-OK id=1 version=0.1
+OK id=1 version=0.1 session=839201
 ERR id=1 code=UNSUPPORTED_VERSION
 ```
+
+`HELLO` is the only request accepted before negotiation. The host rejects an
+unsupported or missing `version`; a successful response assigns an opaque
+`session` value. Every later request must repeat that value, and successful
+responses repeat it as well. A missing or stale value is rejected with
+`MISSING_SESSION` or `BAD_SESSION`, preventing delayed requests from a previous
+host process from being applied to a newly opened image.
 
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
@@ -53,12 +60,12 @@ bounded transfer limit.
 ## Examples
 
 ```text
-GET_INFO id=2
-OK id=2 present=1 type=SDSC blocks=131072 block_size=512 readonly=0
-READ_BLOCKS id=3 lba=0 count=1 encoding=BASE64
-OK id=3 lba=0 count=1 encoding=BASE64 crc32=00000000 data=AAAA...
-FLUSH id=4
-OK id=4
+GET_INFO id=2 session=839201
+OK id=2 session=839201 present=1 type=SDSC blocks=131072 block_size=512 readonly=0
+READ_BLOCKS id=3 session=839201 lba=0 count=1 encoding=BASE64
+OK id=3 session=839201 lba=0 count=1 encoding=BASE64 crc32=00000000 data=AAAA...
+FLUSH id=4 session=839201
+OK id=4 session=839201
 ```
 
 The example `data` value is deliberately abbreviated and is not a test vector.

@@ -79,13 +79,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    const auto session_id = std::to_string(
+        std::chrono::steady_clock::now().time_since_epoch().count());
+
 #if defined(_WIN32)
     picosd::host::WindowsCdcTransport transport;
     if (transport.open(options.port) != picosd::host::CdcTransportError::None) {
         std::cerr << "Could not open USB CDC port: " << options.port << '\n';
         return 1;
     }
-    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable};
+    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable,
+                                                session_id};
     while (true) {
         const auto result = picosd::host::process_one_request(transport, dispatcher);
         if (result == picosd::host::SessionRunResult::TransportError) return 1;
@@ -97,7 +101,8 @@ int main(int argc, char* argv[]) {
         std::cerr << "Could not open USB CDC port: " << options.port << '\n';
         return 1;
     }
-    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable};
+    picosd::host::SessionDispatcher dispatcher{image, options.card_type, options.writable,
+                                                session_id};
     std::cout << "Serving " << options.image_path.string() << " (" << image.block_count() << " blocks) on "
               << options.port << ".\n";
     while (true) {
