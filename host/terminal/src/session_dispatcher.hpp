@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -20,6 +21,7 @@ private:
     bool writable_;
     bool established_ = false;
     bool ejected_ = false;
+    std::uint64_t last_request_id_ = 0;
 };
 
 }  // namespace picosd::host

@@ -33,6 +33,12 @@ int main() {
     picosd::host::ImageFile image;
     expect(image.open(path, true), "opens image");
     picosd::host::SessionDispatcher session{image, "SDSC", true, "test-session"};
+    expect(session.dispatch("HELLO id=invalid version=0.1") ==
+               "ERR id=invalid code=BAD_ID",
+           "requires a positive decimal request id");
+    expect(session.dispatch("HELLO id=18446744073709551616 version=0.1") ==
+               "ERR id=18446744073709551616 code=BAD_ID",
+           "rejects an overflowing request id");
     expect(session.dispatch("GET_INFO id=1 session=test-session") ==
                "ERR id=1 code=HANDSHAKE_REQUIRED",
            "requires handshake before media commands");
@@ -42,11 +48,17 @@ int main() {
     expect(session.dispatch("HELLO id=3 version=0.1") ==
                "OK id=3 version=0.1 session=test-session",
            "negotiates protocol and session");
+    expect(session.dispatch("GET_INFO id=3 session=test-session") ==
+               "ERR id=3 code=STALE_ID",
+           "rejects a duplicate request id");
+    expect(session.dispatch("GET_INFO id=2 session=test-session") ==
+               "ERR id=2 code=STALE_ID",
+           "rejects a decreasing request id");
     expect(session.dispatch("GET_INFO id=4") == "ERR id=4 code=MISSING_SESSION",
            "requires session on established requests");
-    expect(session.dispatch("GET_INFO id=5 session=stale") ==
-               "ERR id=5 code=BAD_SESSION",
-           "rejects stale session");
+    expect(session.dispatch("GET_INFO id=999 session=stale") ==
+               "ERR id=999 code=BAD_SESSION",
+           "rejects stale session without consuming its request id");
     expect(session.dispatch("GET_INFO id=6 session=test-session").find("blocks=1") !=
                std::string::npos,
            "returns image metadata for active session");

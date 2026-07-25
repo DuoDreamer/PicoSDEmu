@@ -34,15 +34,21 @@ std::string SessionDispatcher::dispatch(std::string_view request) {
     if (picosd::protocol::parse_text_line(request, line) != picosd::protocol::TextLineError::None) return error({}, "BAD_LINE");
     const auto id = line.value_for("id");
     if (id.empty()) return error({}, "MISSING_ID");
+    std::uint64_t request_id = 0;
+    if (!decimal(id, request_id) || request_id == 0) return error(id, "BAD_ID");
     if (line.command() == "HELLO") {
         if (line.value_for("version") != "0.1") return error(id, "UNSUPPORTED_VERSION");
+        if (established_ && request_id <= last_request_id_) return error(id, "STALE_ID");
         established_ = true;
+        last_request_id_ = request_id;
         return "OK id=" + std::string(id) + " version=0.1 session=" + session_id_;
     }
     if (!established_) return error(id, "HANDSHAKE_REQUIRED");
     const auto session = line.value_for("session");
     if (session.empty()) return error(id, "MISSING_SESSION");
     if (session != session_id_) return error(id, "BAD_SESSION");
+    if (request_id <= last_request_id_) return error(id, "STALE_ID");
+    last_request_id_ = request_id;
     const auto ok = "OK id=" + std::string(id) + " session=" + session_id_;
     if (ejected_ && line.command() != "EJECT") return error(id, "NO_MEDIA");
     if (line.command() == "GET_INFO") return ok + " present=1 type=" + card_type_ + " blocks=" + std::to_string(image_.block_count()) + " block_size=512 readonly=" + (writable_ ? "0" : "1");

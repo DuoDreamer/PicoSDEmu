@@ -32,6 +32,11 @@ input and requiring a clean reconnect rather than attempting stream recovery.
 
 Every programmatic request includes a decimal `id` field chosen by its sender.
 Responses repeat that `id`, allowing the host program to correlate requests.
+IDs are positive 64-bit integers and must increase within a negotiated session.
+The host rejects zero, non-decimal, overflowing, duplicate, or decreasing IDs
+with `BAD_ID` or `STALE_ID`. Requests with a missing or incorrect session do
+not advance the accepted ID, so unrelated traffic cannot invalidate the active
+peer's next request.
 
 ```text
 HELLO id=1 version=0.1
