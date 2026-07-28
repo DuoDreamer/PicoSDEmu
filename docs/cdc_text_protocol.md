@@ -53,6 +53,12 @@ responses repeat it as well. A missing or stale value is rejected with
 `MISSING_SESSION` or `BAD_SESSION`, preventing delayed requests from a previous
 host process from being applied to a newly opened image.
 
+The portable `CdcSessionClient` implements the peer-side sequencing policy: it
+permits one outstanding request, correlates response IDs and session values,
+and retains a pending request when unrelated or malformed input arrives. A
+transport disconnect calls `reset()`, after which request numbering restarts at
+one and a new `HELLO` exchange is required.
+
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
 Commands whose behavior has not yet been implemented must return an explicit
