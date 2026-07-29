@@ -30,6 +30,17 @@ else()
 endif()
 add_test(NAME picosd.protocol.cdc_session_client COMMAND picosd-cdc-session-client-tests)
 
+add_executable(picosd-cdc-block-response-tests cdc_block_response_tests.cpp)
+target_link_libraries(picosd-cdc-block-response-tests PRIVATE picosd-protocol-core)
+target_compile_features(picosd-cdc-block-response-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-cdc-block-response-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-cdc-block-response-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-cdc-block-response-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.protocol.cdc_block_response COMMAND picosd-cdc-block-response-tests)
+
 add_executable(picosd-cdc-session-integration-tests
     cdc_session_integration_tests.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/cdc_transport.cpp

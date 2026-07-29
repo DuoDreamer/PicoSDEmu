@@ -61,6 +61,11 @@ one and a new `HELLO` exchange is required. The host must create a new
 `SessionDispatcher` for the reopened transport so its accepted request sequence
 and assigned session are reset at the same boundary.
 
+Portable `decode_get_info_response` and `decode_read_block_response` helpers
+convert correlated `OK` lines into typed metadata and 512-byte blocks. The read
+decoder requires `BASE64`, a single block, an eight-digit CRC32, and exactly
+512 decoded bytes before exposing the payload.
+
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
 Commands whose behavior has not yet been implemented must return an explicit

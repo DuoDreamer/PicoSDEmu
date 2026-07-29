@@ -14,6 +14,11 @@ namespace {
 std::string error(std::string_view id, std::string_view code) {
     return "ERR id=" + std::string(id.empty() ? "0" : id) + " code=" + std::string(code);
 }
+std::string canonical_card_type(std::string card_type) {
+    if (card_type == "sdsc") return "SDSC";
+    if (card_type == "sdhc") return "SDHC";
+    return card_type;
+}
 bool decimal(std::string_view text, std::uint64_t& value) {
     const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
     return result.ec == std::errc{} && result.ptr == text.data() + text.size();
@@ -26,8 +31,8 @@ bool hexadecimal(std::string_view text, std::uint32_t& value) {
 
 SessionDispatcher::SessionDispatcher(ImageFile& image, std::string card_type, bool writable,
                                      std::string session_id)
-    : image_(image), card_type_(std::move(card_type)), session_id_(std::move(session_id)),
-      writable_(writable) {}
+    : image_(image), card_type_(canonical_card_type(std::move(card_type))),
+      session_id_(std::move(session_id)), writable_(writable) {}
 
 std::string SessionDispatcher::dispatch(std::string_view request) {
     picosd::protocol::TextLine line;

@@ -9,6 +9,7 @@
 #include "image_file.hpp"
 #include "session_dispatcher.hpp"
 #include "session_runner.hpp"
+#include "picosd/protocol/cdc_block_response.hpp"
 #include "picosd/protocol/cdc_session_client.hpp"
 
 namespace {
@@ -50,7 +51,7 @@ int main() {
     picosd::host::MemoryCdcTransport transport;
     expect(transport.open("integration") == picosd::host::CdcTransportError::None,
            "opens in-memory link");
-    picosd::host::SessionDispatcher dispatcher{image, "SDSC", true, "first-session"};
+    picosd::host::SessionDispatcher dispatcher{image, "sdsc", true, "first-session"};
     CdcSessionClient client;
 
     const auto hello = client.begin_handshake();
@@ -66,6 +67,11 @@ int main() {
     expect(info_response.find("OK id=2 session=first-session") == 0 &&
                info_response.find("blocks=1") != std::string::npos,
            "session-bound metadata round trip succeeds");
+    picosd::protocol::CdcCardInfo card_info;
+    expect(picosd::protocol::decode_get_info_response(info_response, card_info) ==
+               picosd::protocol::CdcBlockResponseError::None &&
+               card_info.blocks == 1 && card_info.type == picosd::protocol::CdcCardType::Sdsc,
+           "client decodes typed metadata");
     expect(client.accept_response("OK id=2 session=unrelated present=1") ==
                CdcSessionClientError::MismatchedResponse && client.request_pending(),
            "unrelated response does not consume pending request");
@@ -77,6 +83,11 @@ int main() {
     const auto read_response = exchange(transport, dispatcher, read.line);
     expect(read_response.find("data=Kg") != std::string::npos,
            "block payload crosses complete session stack");
+    picosd::protocol::CdcReadBlock read_block;
+    expect(picosd::protocol::decode_read_block_response(read_response, read_block) ==
+               picosd::protocol::CdcBlockResponseError::None &&
+               read_block.lba == 0 && read_block.data[0] == 0x2a,
+           "client decodes and verifies typed block response");
     expect(client.accept_response(read_response) == CdcSessionClientError::None,
            "client correlates block response");
 
