@@ -62,7 +62,7 @@ int main() {
                client.session_id() == "first-session",
            "client accepts host negotiation");
 
-    const auto info = client.begin_request("GET_INFO");
+    const auto info = client.begin_get_info();
     const auto info_response = exchange(transport, dispatcher, info.line);
     expect(info_response.find("OK id=2 session=first-session") == 0 &&
                info_response.find("blocks=1") != std::string::npos,
@@ -78,8 +78,7 @@ int main() {
     expect(client.accept_response(info_response) == CdcSessionClientError::None,
            "client accepts correlated metadata response");
 
-    const auto read = client.begin_request(
-        "READ_BLOCKS", "lba=0 count=1 encoding=BASE64");
+    const auto read = client.begin_read_block(0);
     const auto read_response = exchange(transport, dispatcher, read.line);
     expect(read_response.find("data=Kg") != std::string::npos,
            "block payload crosses complete session stack");
@@ -90,6 +89,23 @@ int main() {
            "client decodes and verifies typed block response");
     expect(client.accept_response(read_response) == CdcSessionClientError::None,
            "client correlates block response");
+
+    picosd::protocol::CdcBlockData replacement{};
+    replacement[0] = 0x7c;
+    replacement[511] = 0xa5;
+    const auto write = client.begin_write_block(0, replacement);
+    const auto write_response = exchange(transport, dispatcher, write.line);
+    expect(write_response == "OK id=4 session=first-session" &&
+               client.accept_response(write_response) == CdcSessionClientError::None,
+           "typed block write crosses complete session stack");
+    const auto read_back = client.begin_read_block(0);
+    const auto read_back_response = exchange(transport, dispatcher, read_back.line);
+    picosd::protocol::CdcReadBlock written_block;
+    expect(picosd::protocol::decode_read_block_response(read_back_response, written_block) ==
+               picosd::protocol::CdcBlockResponseError::None &&
+               written_block.data == replacement &&
+               client.accept_response(read_back_response) == CdcSessionClientError::None,
+           "typed write reads back with verified payload");
 
     transport.close();
     client.reset();

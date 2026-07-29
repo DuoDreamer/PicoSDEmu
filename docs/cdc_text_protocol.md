@@ -66,6 +66,11 @@ convert correlated `OK` lines into typed metadata and 512-byte blocks. The read
 decoder requires `BASE64`, a single block, an eight-digit CRC32, and exactly
 512 decoded bytes before exposing the payload.
 
+`CdcSessionClient` also provides typed builders for metadata, single-block
+reads and writes, flush, and eject. The write builder always emits one 512-byte
+base64 payload and calculates its uppercase eight-digit CRC32, preventing
+callers from constructing inconsistent length, encoding, or checksum fields.
+
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
 Commands whose behavior has not yet been implemented must return an explicit

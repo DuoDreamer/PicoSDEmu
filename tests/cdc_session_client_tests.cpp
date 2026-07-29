@@ -16,6 +16,7 @@ void expect(bool condition, const char* description) {
 int main() {
     using picosd::protocol::CdcSessionClient;
     using picosd::protocol::CdcSessionClientError;
+    using picosd::protocol::CdcBlockData;
 
     CdcSessionClient client;
     expect(client.begin_request("GET_INFO").error == CdcSessionClientError::NotNegotiated,
@@ -58,8 +59,39 @@ int main() {
            "completes request on remote error");
 
     client.reset();
+    const auto reset_hello = client.begin_handshake();
     expect(!client.negotiated() && client.session_id().empty() &&
-               client.begin_handshake().line == "HELLO id=1 version=0.1",
+               reset_hello.line == "HELLO id=1 version=0.1",
            "reset clears session and request sequence");
+    expect(client.accept_response("OK id=1 version=0.1 session=typed") ==
+               CdcSessionClientError::None,
+           "renegotiates typed request session");
+    expect(client.begin_get_info().line == "GET_INFO id=2 session=typed",
+           "builds typed metadata request");
+    expect(client.accept_response("OK id=2 session=typed present=1") ==
+               CdcSessionClientError::None,
+           "completes typed metadata request");
+    expect(client.begin_read_block(17).line ==
+               "READ_BLOCKS id=3 session=typed lba=17 count=1 encoding=BASE64",
+           "builds typed block read request");
+    expect(client.accept_response("OK id=3 session=typed") == CdcSessionClientError::None,
+           "completes typed read request");
+    CdcBlockData block{};
+    block[0] = 0x2a;
+    const auto write = client.begin_write_block(18, block);
+    expect(write.line.find("WRITE_BLOCKS id=4 session=typed lba=18 count=1 encoding=BASE64 ") == 0 &&
+               write.line.find("crc32=") != std::string::npos &&
+               write.line.find("data=Kg") != std::string::npos,
+           "builds typed checksummed block write request");
+    expect(client.accept_response("OK id=4 session=typed") == CdcSessionClientError::None,
+           "completes typed write request");
+    expect(client.begin_flush().line == "FLUSH id=5 session=typed",
+           "builds typed flush request");
+    expect(client.accept_response("OK id=5 session=typed") == CdcSessionClientError::None,
+           "completes typed flush request");
+    expect(client.begin_eject().line == "EJECT id=6 session=typed",
+           "builds typed eject request");
+    expect(client.accept_response("OK id=6 session=typed") == CdcSessionClientError::None,
+           "completes typed eject request");
     return failures == 0 ? 0 : 1;
 }

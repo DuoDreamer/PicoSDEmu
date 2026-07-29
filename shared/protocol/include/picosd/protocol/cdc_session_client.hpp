@@ -4,6 +4,8 @@
 #include <string>
 #include <string_view>
 
+#include "picosd/protocol/cdc_block_response.hpp"
+
 namespace picosd::protocol {
 
 enum class CdcSessionClientError {
@@ -29,6 +31,12 @@ public:
     CdcSessionClientRequest begin_handshake();
     CdcSessionClientRequest begin_request(std::string_view command,
                                           std::string_view fields = {});
+    CdcSessionClientRequest begin_get_info();
+    CdcSessionClientRequest begin_read_block(std::uint64_t lba);
+    CdcSessionClientRequest begin_write_block(std::uint64_t lba,
+                                              const CdcBlockData& data);
+    CdcSessionClientRequest begin_flush();
+    CdcSessionClientRequest begin_eject();
     CdcSessionClientError accept_response(std::string_view response);
     void reset();
 

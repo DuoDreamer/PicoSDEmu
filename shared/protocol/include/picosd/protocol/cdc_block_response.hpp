@@ -8,6 +8,7 @@
 namespace picosd::protocol {
 
 inline constexpr std::size_t kCdcBlockSize = 512;
+using CdcBlockData = std::array<std::uint8_t, kCdcBlockSize>;
 
 enum class CdcBlockResponseError {
     None,
@@ -30,7 +31,7 @@ struct CdcCardInfo {
 
 struct CdcReadBlock {
     std::uint64_t lba = 0;
-    std::array<std::uint8_t, kCdcBlockSize> data{};
+    CdcBlockData data{};
 };
 
 CdcBlockResponseError decode_get_info_response(std::string_view response,

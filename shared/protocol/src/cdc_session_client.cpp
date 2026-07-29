@@ -1,11 +1,14 @@
 #include "picosd/protocol/cdc_session_client.hpp"
 
 #include <charconv>
+#include <cstdio>
 #include <limits>
 #include <utility>
 
 #include "picosd/protocol/text_line.hpp"
 #include "picosd/protocol/version.hpp"
+#include "picosd/protocol/codec.hpp"
+#include "picosd/protocol/crc.hpp"
 
 namespace picosd::protocol {
 namespace {
@@ -47,6 +50,32 @@ CdcSessionClientRequest CdcSessionClient::begin_request(std::string_view command
         return {CdcSessionClientError::InvalidRequest, {}};
     }
     return reserve_request(std::move(line), false);
+}
+
+CdcSessionClientRequest CdcSessionClient::begin_get_info() {
+    return begin_request("GET_INFO");
+}
+
+CdcSessionClientRequest CdcSessionClient::begin_read_block(std::uint64_t lba) {
+    return begin_request("READ_BLOCKS", "lba=" + std::to_string(lba) +
+                                            " count=1 encoding=BASE64");
+}
+
+CdcSessionClientRequest CdcSessionClient::begin_write_block(std::uint64_t lba,
+                                                            const CdcBlockData& data) {
+    char checksum[9]{};
+    std::snprintf(checksum, sizeof(checksum), "%08X", crc32(data.data(), data.size()));
+    return begin_request("WRITE_BLOCKS", "lba=" + std::to_string(lba) +
+                                             " count=1 encoding=BASE64 crc32=" + checksum +
+                                             " data=" + encode_base64(data.data(), data.size()));
+}
+
+CdcSessionClientRequest CdcSessionClient::begin_flush() {
+    return begin_request("FLUSH");
+}
+
+CdcSessionClientRequest CdcSessionClient::begin_eject() {
+    return begin_request("EJECT");
 }
 
 CdcSessionClientRequest CdcSessionClient::reserve_request(std::string line, bool handshake) {
