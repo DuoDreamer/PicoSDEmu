@@ -57,7 +57,9 @@ The portable `CdcSessionClient` implements the peer-side sequencing policy: it
 permits one outstanding request, correlates response IDs and session values,
 and retains a pending request when unrelated or malformed input arrives. A
 transport disconnect calls `reset()`, after which request numbering restarts at
-one and a new `HELLO` exchange is required.
+one and a new `HELLO` exchange is required. The host must create a new
+`SessionDispatcher` for the reopened transport so its accepted request sequence
+and assigned session are reset at the same boundary.
 
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
