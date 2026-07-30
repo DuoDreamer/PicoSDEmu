@@ -128,6 +128,20 @@ int main() {
                client.accept_response(unchanged_response) == CdcSessionClientError::None,
            "bad CRC leaves image block unchanged");
 
+    const auto delayed_flush = client.begin_flush();
+    const auto delayed_response = exchange(transport, dispatcher, delayed_flush.line);
+    expect(delayed_response == "OK id=8 session=first-session" &&
+               client.cancel_pending_request(),
+           "caller can cancel a response after its deadline");
+    expect(client.accept_response(delayed_response) ==
+               CdcSessionClientError::MismatchedResponse,
+           "late cancelled response is ignored");
+    const auto after_timeout = client.begin_get_info();
+    const auto after_timeout_response = exchange(transport, dispatcher, after_timeout.line);
+    expect(after_timeout.line == "GET_INFO id=9 session=first-session" &&
+               client.accept_response(after_timeout_response) == CdcSessionClientError::None,
+           "session continues with a fresh id after cancellation");
+
     transport.close();
     client.reset();
     expect(transport.open("reconnected") == picosd::host::CdcTransportError::None,

@@ -144,6 +144,13 @@ CdcSessionClientError CdcSessionClient::accept_response(std::string_view respons
     return CdcSessionClientError::None;
 }
 
+bool CdcSessionClient::cancel_pending_request() {
+    if (!request_pending()) return false;
+    pending_id_ = 0;
+    pending_handshake_ = false;
+    return true;
+}
+
 void CdcSessionClient::reset() {
     next_id_ = 1;
     pending_id_ = 0;

@@ -20,6 +20,7 @@ int main() {
     using picosd::protocol::CdcRemoteError;
 
     CdcSessionClient client;
+    expect(!client.cancel_pending_request(), "cannot cancel without a pending request");
     expect(client.begin_request("GET_INFO").error == CdcSessionClientError::NotNegotiated,
            "media request requires negotiation");
     const auto hello = client.begin_handshake();
@@ -28,13 +29,21 @@ int main() {
            "builds initial handshake");
     expect(client.begin_handshake().error == CdcSessionClientError::Busy,
            "allows only one outstanding request");
-    expect(client.accept_response("OK id=2 version=0.1 session=abc") ==
+    expect(client.cancel_pending_request() && !client.request_pending(),
+           "cancels pending handshake");
+    expect(client.accept_response("OK id=1 version=0.1 session=late") ==
+               CdcSessionClientError::MismatchedResponse,
+           "rejects response for cancelled handshake");
+    const auto replacement_hello = client.begin_handshake();
+    expect(replacement_hello.line == "HELLO id=2 version=0.1",
+           "does not reuse cancelled request id");
+    expect(client.accept_response("OK id=3 version=0.1 session=abc") ==
                CdcSessionClientError::MismatchedResponse && client.request_pending(),
            "retains request after mismatched response id");
-    expect(client.accept_response("OK id=1 version=9.9 session=abc") ==
+    expect(client.accept_response("OK id=2 version=9.9 session=abc") ==
                CdcSessionClientError::InvalidResponse && client.request_pending(),
            "retains request after incompatible response");
-    expect(client.accept_response("OK id=1 version=0.1 session=abc") ==
+    expect(client.accept_response("OK id=2 version=0.1 session=abc") ==
                CdcSessionClientError::None && client.negotiated() &&
                client.session_id() == "abc",
            "accepts negotiated session");
@@ -44,18 +53,18 @@ int main() {
            "prevents caller from overriding reserved fields");
     const auto info = client.begin_request("GET_INFO");
     expect(info.error == CdcSessionClientError::None &&
-               info.line == "GET_INFO id=2 session=abc",
+               info.line == "GET_INFO id=3 session=abc",
            "builds session-bound request with increasing id");
-    expect(client.accept_response("OK id=2 session=stale present=1") ==
+    expect(client.accept_response("OK id=3 session=stale present=1") ==
                CdcSessionClientError::MismatchedResponse && client.request_pending(),
            "rejects response from stale session");
-    expect(client.accept_response("OK id=2 session=abc present=1") ==
+    expect(client.accept_response("OK id=3 session=abc present=1") ==
                CdcSessionClientError::None && !client.request_pending(),
            "accepts correlated session response");
 
     const auto flush = client.begin_request("FLUSH");
-    expect(flush.line == "FLUSH id=3 session=abc", "advances request id");
-    expect(client.accept_response("ERR id=3 code=IO_ERROR") ==
+    expect(flush.line == "FLUSH id=4 session=abc", "advances request id");
+    expect(client.accept_response("ERR id=4 code=IO_ERROR") ==
                CdcSessionClientError::RemoteError && !client.request_pending() &&
                client.remote_error() == CdcRemoteError::IoError &&
                client.remote_error_code() == "IO_ERROR",
@@ -64,7 +73,7 @@ int main() {
                client.remote_error() == CdcRemoteError::None &&
                client.remote_error_code().empty(),
            "new request clears previous remote error");
-    expect(client.accept_response("ERR id=4") == CdcSessionClientError::InvalidResponse &&
+    expect(client.accept_response("ERR id=5") == CdcSessionClientError::InvalidResponse &&
                client.request_pending(),
            "remote error requires a code");
 

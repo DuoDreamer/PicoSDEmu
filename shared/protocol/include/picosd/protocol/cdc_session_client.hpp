@@ -59,6 +59,7 @@ public:
     CdcSessionClientRequest begin_flush();
     CdcSessionClientRequest begin_eject();
     CdcSessionClientError accept_response(std::string_view response);
+    bool cancel_pending_request();
     void reset();
 
     [[nodiscard]] bool negotiated() const { return negotiated_; }
