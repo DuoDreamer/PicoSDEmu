@@ -40,6 +40,15 @@ enum class CdcRemoteError {
     Unknown,
 };
 
+enum class CdcRetryAdvice {
+    DoNotRetry,
+    RetrySameSession,
+    Renegotiate,
+    MediaUnavailable,
+};
+
+[[nodiscard]] CdcRetryAdvice retry_advice(CdcRemoteError error);
+
 struct CdcSessionClientRequest {
     CdcSessionClientError error = CdcSessionClientError::None;
     std::string line;

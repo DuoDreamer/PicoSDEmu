@@ -18,6 +18,8 @@ int main() {
     using picosd::protocol::CdcSessionClientError;
     using picosd::protocol::CdcBlockData;
     using picosd::protocol::CdcRemoteError;
+    using picosd::protocol::CdcRetryAdvice;
+    using picosd::protocol::retry_advice;
 
     CdcSessionClient client;
     expect(!client.cancel_pending_request(), "cannot cancel without a pending request");
@@ -118,5 +120,15 @@ int main() {
                client.remote_error() == CdcRemoteError::Unknown &&
                client.remote_error_code() == "FUTURE_ERROR",
            "preserves unknown future remote error code");
+    expect(retry_advice(CdcRemoteError::IoError) == CdcRetryAdvice::RetrySameSession,
+           "classifies transient I/O error for same-session retry");
+    expect(retry_advice(CdcRemoteError::BadSession) == CdcRetryAdvice::Renegotiate &&
+               retry_advice(CdcRemoteError::StaleId) == CdcRetryAdvice::Renegotiate,
+           "classifies invalid session state for renegotiation");
+    expect(retry_advice(CdcRemoteError::NoMedia) == CdcRetryAdvice::MediaUnavailable,
+           "classifies absent media separately");
+    expect(retry_advice(CdcRemoteError::BadCrc) == CdcRetryAdvice::DoNotRetry &&
+               retry_advice(CdcRemoteError::Unknown) == CdcRetryAdvice::DoNotRetry,
+           "does not automatically retry invalid or unknown requests");
     return failures == 0 ? 0 : 1;
 }

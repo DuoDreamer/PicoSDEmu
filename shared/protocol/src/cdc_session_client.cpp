@@ -44,6 +44,34 @@ CdcRemoteError decode_remote_error(std::string_view code) {
 
 }  // namespace
 
+CdcRetryAdvice retry_advice(CdcRemoteError error) {
+    switch (error) {
+        case CdcRemoteError::IoError:
+            return CdcRetryAdvice::RetrySameSession;
+        case CdcRemoteError::StaleId:
+        case CdcRemoteError::HandshakeRequired:
+        case CdcRemoteError::MissingSession:
+        case CdcRemoteError::BadSession:
+            return CdcRetryAdvice::Renegotiate;
+        case CdcRemoteError::NoMedia:
+            return CdcRetryAdvice::MediaUnavailable;
+        case CdcRemoteError::None:
+        case CdcRemoteError::BadLine:
+        case CdcRemoteError::MissingId:
+        case CdcRemoteError::BadId:
+        case CdcRemoteError::UnsupportedVersion:
+        case CdcRemoteError::BadRange:
+        case CdcRemoteError::Range:
+        case CdcRemoteError::ReadOnly:
+        case CdcRemoteError::BadData:
+        case CdcRemoteError::BadCrc:
+        case CdcRemoteError::Unsupported:
+        case CdcRemoteError::Unknown:
+            return CdcRetryAdvice::DoNotRetry;
+    }
+    return CdcRetryAdvice::DoNotRetry;
+}
+
 CdcSessionClientRequest CdcSessionClient::begin_handshake() {
     if (request_pending()) return {CdcSessionClientError::Busy, {}};
     if (negotiated_) return {CdcSessionClientError::InvalidRequest, {}};

@@ -74,6 +74,10 @@ For a correlated `ERR`, the client exposes the required `code` field through
 both a `CdcRemoteError` classification and `remote_error_code()` until the next
 request begins or the session is reset. Unknown future codes map to `Unknown`
 while retaining their original text for forward-compatible diagnostics.
+`retry_advice()` classifies `IO_ERROR` for a bounded same-session retry,
+session-state errors for renegotiation, and `NO_MEDIA` as unavailable media.
+Invalid requests, unsupported operations, write-policy failures, checksum
+failures, and unknown future errors are never retried automatically.
 
 Transport timeout policy may call `cancel_pending_request()`. Cancellation
 abandons only the outstanding correlation state, never reuses its request ID,
