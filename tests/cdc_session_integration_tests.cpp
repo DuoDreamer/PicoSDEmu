@@ -142,6 +142,42 @@ int main() {
                client.accept_response(after_timeout_response) == CdcSessionClientError::None,
            "session continues with a fresh id after cancellation");
 
+    const auto flush = client.begin_flush();
+    const auto flush_response = exchange(transport, dispatcher, flush.line);
+    expect(flush_response == "OK id=10 session=first-session" &&
+               client.accept_response(flush_response) == CdcSessionClientError::None,
+           "flush completes through typed session path");
+    const auto out_of_range_read = client.begin_read_block(1);
+    const auto range_read_response =
+        exchange(transport, dispatcher, out_of_range_read.line);
+    expect(range_read_response == "ERR id=11 code=RANGE" &&
+               client.accept_response(range_read_response) ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::Range,
+           "out-of-range read returns typed range error");
+    const auto out_of_range_write = client.begin_write_block(1, replacement);
+    const auto range_write_response =
+        exchange(transport, dispatcher, out_of_range_write.line);
+    expect(range_write_response == "ERR id=12 code=RANGE" &&
+               client.accept_response(range_write_response) ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::Range,
+           "out-of-range write returns typed range error");
+    const auto eject = client.begin_eject();
+    const auto eject_response = exchange(transport, dispatcher, eject.line);
+    expect(eject_response == "OK id=13 session=first-session" &&
+               client.accept_response(eject_response) == CdcSessionClientError::None,
+           "eject completes through typed session path");
+    const auto after_eject = client.begin_get_info();
+    const auto no_media_response = exchange(transport, dispatcher, after_eject.line);
+    expect(no_media_response == "ERR id=14 code=NO_MEDIA" &&
+               client.accept_response(no_media_response) ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::NoMedia &&
+               picosd::protocol::retry_advice(client.remote_error()) ==
+                   picosd::protocol::CdcRetryAdvice::MediaUnavailable,
+           "ejected image reports unavailable media without retry");
+
     transport.close();
     client.reset();
     expect(transport.open("reconnected") == picosd::host::CdcTransportError::None,

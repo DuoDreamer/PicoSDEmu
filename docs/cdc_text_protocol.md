@@ -106,6 +106,12 @@ hexadecimal digits, calculated over decoded sector bytes. The maximum block
 count will be declared by `GET_INFO`; the first implementation will use a small
 bounded transfer limit.
 
+The initial host returns `RANGE` when a single-block LBA is outside the image,
+`READ_ONLY` when writes are disabled, `BAD_DATA` or `BAD_CRC` before modifying
+invalid write input, and `NO_MEDIA` for commands issued after `EJECT`. `FLUSH`
+commits buffered image data before returning `OK`; `EJECT` flushes first and
+then makes later media operations fail with `NO_MEDIA`.
+
 ## Examples
 
 ```text
