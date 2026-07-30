@@ -79,6 +79,11 @@ session-state errors for renegotiation, and `NO_MEDIA` as unavailable media.
 Invalid requests, unsupported operations, write-policy failures, checksum
 failures, and unknown future errors are never retried automatically.
 
+`CdcRetryController` turns that advice into a bounded exponential-backoff
+schedule. Configuration supplies a maximum retry count plus initial and maximum
+delays in caller-defined monotonic ticks. Backoff and target timestamps saturate
+instead of overflowing; a successful operation resets the retry budget.
+
 Transport timeout policy may call `cancel_pending_request()`. Cancellation
 abandons only the outstanding correlation state, never reuses its request ID,
 and leaves an established session available for the next request. A response
