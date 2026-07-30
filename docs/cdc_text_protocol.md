@@ -81,6 +81,11 @@ and leaves an established session available for the next request. A response
 that arrives after cancellation is therefore rejected as mismatched. A full
 disconnect still uses `reset()` and requires a new handshake.
 
+`CdcRequestDeadline` supplies clock-agnostic timeout policy around that API.
+Callers arm it with monotonic ticks and a nonzero timeout after transmitting a
+request; polling at or after the saturated deadline cancels the pending request.
+If a response already completed the request, polling only clears the deadline.
+
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.
 Commands whose behavior has not yet been implemented must return an explicit

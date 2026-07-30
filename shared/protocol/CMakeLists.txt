@@ -1,5 +1,6 @@
 add_library(picosd-protocol-core
     src/cdc_block_response.cpp
+    src/cdc_request_deadline.cpp
     src/cdc_session_client.cpp
     src/codec.cpp
     src/crc.cpp
