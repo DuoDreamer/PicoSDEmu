@@ -83,6 +83,25 @@ else()
 endif()
 add_test(NAME picosd.integration.cdc_session COMMAND picosd-cdc-session-integration-tests)
 
+if(NOT WIN32)
+    add_executable(picosd-cdc-stream-integration-tests
+        cdc_stream_integration_tests.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/cdc_transport.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/image_file.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/posix_cdc_transport.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/session_dispatcher.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src/session_runner.cpp
+    )
+    target_include_directories(picosd-cdc-stream-integration-tests PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/../host/terminal/src
+    )
+    target_link_libraries(picosd-cdc-stream-integration-tests PRIVATE picosd-protocol-core)
+    target_compile_features(picosd-cdc-stream-integration-tests PRIVATE cxx_std_17)
+    set_target_properties(picosd-cdc-stream-integration-tests PROPERTIES CXX_EXTENSIONS OFF)
+    target_compile_options(picosd-cdc-stream-integration-tests PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME picosd.integration.cdc_stream COMMAND picosd-cdc-stream-integration-tests)
+endif()
+
 add_executable(picosd-fixed-ring-queue-tests
     fixed_ring_queue_tests.cpp
 )
