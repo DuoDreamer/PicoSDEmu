@@ -70,6 +70,8 @@ decoder requires `BASE64`, a single block, an eight-digit CRC32, and exactly
 reads and writes, flush, and eject. The write builder always emits one 512-byte
 base64 payload and calculates its uppercase eight-digit CRC32, preventing
 callers from constructing inconsistent length, encoding, or checksum fields.
+For a correlated `ERR`, the client exposes the required `code` field through
+`remote_error_code()` until the next request begins or the session is reset.
 
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.

@@ -43,6 +43,7 @@ public:
     [[nodiscard]] bool negotiated() const { return negotiated_; }
     [[nodiscard]] bool request_pending() const { return pending_id_ != 0; }
     [[nodiscard]] std::string_view session_id() const { return session_id_; }
+    [[nodiscard]] std::string_view remote_error_code() const { return remote_error_code_; }
 
 private:
     CdcSessionClientRequest reserve_request(std::string line, bool handshake);
@@ -52,6 +53,7 @@ private:
     bool pending_handshake_ = false;
     bool negotiated_ = false;
     std::string session_id_;
+    std::string remote_error_code_;
 };
 
 }  // namespace picosd::protocol

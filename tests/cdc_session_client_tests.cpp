@@ -55,8 +55,15 @@ int main() {
     const auto flush = client.begin_request("FLUSH");
     expect(flush.line == "FLUSH id=3 session=abc", "advances request id");
     expect(client.accept_response("ERR id=3 code=IO_ERROR") ==
-               CdcSessionClientError::RemoteError && !client.request_pending(),
+               CdcSessionClientError::RemoteError && !client.request_pending() &&
+               client.remote_error_code() == "IO_ERROR",
            "completes request on remote error");
+    expect(client.begin_flush().error == CdcSessionClientError::None &&
+               client.remote_error_code().empty(),
+           "new request clears previous remote error");
+    expect(client.accept_response("ERR id=4") == CdcSessionClientError::InvalidResponse &&
+               client.request_pending(),
+           "remote error requires a code");
 
     client.reset();
     const auto reset_hello = client.begin_handshake();

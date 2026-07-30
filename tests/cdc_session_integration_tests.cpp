@@ -107,12 +107,32 @@ int main() {
                client.accept_response(read_back_response) == CdcSessionClientError::None,
            "typed write reads back with verified payload");
 
+    picosd::protocol::CdcBlockData rejected{};
+    rejected[0] = 0x11;
+    auto corrupt_write = client.begin_write_block(0, rejected);
+    const auto crc_position = corrupt_write.line.find("crc32=") + 6;
+    corrupt_write.line[crc_position] =
+        corrupt_write.line[crc_position] == '0' ? '1' : '0';
+    const auto corrupt_response = exchange(transport, dispatcher, corrupt_write.line);
+    expect(corrupt_response == "ERR id=6 code=BAD_CRC" &&
+               client.accept_response(corrupt_response) == CdcSessionClientError::RemoteError &&
+               client.remote_error_code() == "BAD_CRC",
+           "corrupt typed write is rejected with a specific remote error");
+    const auto unchanged_read = client.begin_read_block(0);
+    const auto unchanged_response = exchange(transport, dispatcher, unchanged_read.line);
+    picosd::protocol::CdcReadBlock unchanged_block;
+    expect(picosd::protocol::decode_read_block_response(unchanged_response, unchanged_block) ==
+               picosd::protocol::CdcBlockResponseError::None &&
+               unchanged_block.data == replacement &&
+               client.accept_response(unchanged_response) == CdcSessionClientError::None,
+           "bad CRC leaves image block unchanged");
+
     transport.close();
     client.reset();
     expect(transport.open("reconnected") == picosd::host::CdcTransportError::None,
            "reopens in-memory link");
     picosd::host::SessionDispatcher reconnected_dispatcher{
-        image, "SDSC", true, "second-session"};
+        image, "SDSC", false, "second-session"};
     const auto reconnect_hello = client.begin_handshake();
     const auto reconnect_response =
         exchange(transport, reconnected_dispatcher, reconnect_hello.line);
@@ -121,6 +141,13 @@ int main() {
                client.accept_response(reconnect_response) == CdcSessionClientError::None &&
                client.session_id() == "second-session",
            "disconnect creates fresh request and host session state");
+    const auto readonly_write = client.begin_write_block(0, rejected);
+    const auto readonly_response =
+        exchange(transport, reconnected_dispatcher, readonly_write.line);
+    expect(readonly_response == "ERR id=2 code=READ_ONLY" &&
+               client.accept_response(readonly_response) == CdcSessionClientError::RemoteError &&
+               client.remote_error_code() == "READ_ONLY",
+           "read-only session rejects typed writes with a specific error");
 
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;

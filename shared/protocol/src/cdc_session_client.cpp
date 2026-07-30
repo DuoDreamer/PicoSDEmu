@@ -79,6 +79,7 @@ CdcSessionClientRequest CdcSessionClient::begin_eject() {
 }
 
 CdcSessionClientRequest CdcSessionClient::reserve_request(std::string line, bool handshake) {
+    remote_error_code_.clear();
     pending_id_ = next_id_;
     pending_handshake_ = handshake;
     next_id_ = next_id_ == std::numeric_limits<std::uint64_t>::max() ? 0 : next_id_ + 1;
@@ -98,6 +99,9 @@ CdcSessionClientError CdcSessionClient::accept_response(std::string_view respons
     }
     if (response_id != pending_id_) return CdcSessionClientError::MismatchedResponse;
     if (line.command() == "ERR") {
+        const auto code = line.value_for("code");
+        if (code.empty()) return CdcSessionClientError::InvalidResponse;
+        remote_error_code_ = std::string(code);
         pending_id_ = 0;
         pending_handshake_ = false;
         return CdcSessionClientError::RemoteError;
@@ -124,6 +128,7 @@ void CdcSessionClient::reset() {
     pending_handshake_ = false;
     negotiated_ = false;
     session_id_.clear();
+    remote_error_code_.clear();
 }
 
 }  // namespace picosd::protocol
