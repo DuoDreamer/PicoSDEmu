@@ -19,6 +19,27 @@ enum class CdcSessionClientError {
     IdExhausted,
 };
 
+enum class CdcRemoteError {
+    None,
+    BadLine,
+    MissingId,
+    BadId,
+    UnsupportedVersion,
+    StaleId,
+    HandshakeRequired,
+    MissingSession,
+    BadSession,
+    NoMedia,
+    IoError,
+    BadRange,
+    Range,
+    ReadOnly,
+    BadData,
+    BadCrc,
+    Unsupported,
+    Unknown,
+};
+
 struct CdcSessionClientRequest {
     CdcSessionClientError error = CdcSessionClientError::None;
     std::string line;
@@ -43,6 +64,7 @@ public:
     [[nodiscard]] bool negotiated() const { return negotiated_; }
     [[nodiscard]] bool request_pending() const { return pending_id_ != 0; }
     [[nodiscard]] std::string_view session_id() const { return session_id_; }
+    [[nodiscard]] CdcRemoteError remote_error() const { return remote_error_; }
     [[nodiscard]] std::string_view remote_error_code() const { return remote_error_code_; }
 
 private:
@@ -53,6 +75,7 @@ private:
     bool pending_handshake_ = false;
     bool negotiated_ = false;
     std::string session_id_;
+    CdcRemoteError remote_error_ = CdcRemoteError::None;
     std::string remote_error_code_;
 };
 

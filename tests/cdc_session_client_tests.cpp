@@ -17,6 +17,7 @@ int main() {
     using picosd::protocol::CdcSessionClient;
     using picosd::protocol::CdcSessionClientError;
     using picosd::protocol::CdcBlockData;
+    using picosd::protocol::CdcRemoteError;
 
     CdcSessionClient client;
     expect(client.begin_request("GET_INFO").error == CdcSessionClientError::NotNegotiated,
@@ -56,9 +57,11 @@ int main() {
     expect(flush.line == "FLUSH id=3 session=abc", "advances request id");
     expect(client.accept_response("ERR id=3 code=IO_ERROR") ==
                CdcSessionClientError::RemoteError && !client.request_pending() &&
+               client.remote_error() == CdcRemoteError::IoError &&
                client.remote_error_code() == "IO_ERROR",
            "completes request on remote error");
     expect(client.begin_flush().error == CdcSessionClientError::None &&
+               client.remote_error() == CdcRemoteError::None &&
                client.remote_error_code().empty(),
            "new request clears previous remote error");
     expect(client.accept_response("ERR id=4") == CdcSessionClientError::InvalidResponse &&
@@ -100,5 +103,11 @@ int main() {
            "builds typed eject request");
     expect(client.accept_response("OK id=6 session=typed") == CdcSessionClientError::None,
            "completes typed eject request");
+    expect(client.begin_flush().line == "FLUSH id=7 session=typed" &&
+               client.accept_response("ERR id=7 code=FUTURE_ERROR") ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == CdcRemoteError::Unknown &&
+               client.remote_error_code() == "FUTURE_ERROR",
+           "preserves unknown future remote error code");
     return failures == 0 ? 0 : 1;
 }

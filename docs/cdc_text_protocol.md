@@ -71,7 +71,9 @@ reads and writes, flush, and eject. The write builder always emits one 512-byte
 base64 payload and calculates its uppercase eight-digit CRC32, preventing
 callers from constructing inconsistent length, encoding, or checksum fields.
 For a correlated `ERR`, the client exposes the required `code` field through
-`remote_error_code()` until the next request begins or the session is reset.
+both a `CdcRemoteError` classification and `remote_error_code()` until the next
+request begins or the session is reset. Unknown future codes map to `Unknown`
+while retaining their original text for forward-compatible diagnostics.
 
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.

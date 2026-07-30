@@ -116,6 +116,7 @@ int main() {
     const auto corrupt_response = exchange(transport, dispatcher, corrupt_write.line);
     expect(corrupt_response == "ERR id=6 code=BAD_CRC" &&
                client.accept_response(corrupt_response) == CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::BadCrc &&
                client.remote_error_code() == "BAD_CRC",
            "corrupt typed write is rejected with a specific remote error");
     const auto unchanged_read = client.begin_read_block(0);
@@ -146,6 +147,7 @@ int main() {
         exchange(transport, reconnected_dispatcher, readonly_write.line);
     expect(readonly_response == "ERR id=2 code=READ_ONLY" &&
                client.accept_response(readonly_response) == CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::ReadOnly &&
                client.remote_error_code() == "READ_ONLY",
            "read-only session rejects typed writes with a specific error");
 

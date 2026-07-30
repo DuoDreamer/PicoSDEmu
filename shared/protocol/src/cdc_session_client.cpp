@@ -22,6 +22,26 @@ std::string protocol_version() {
     return std::to_string(kVersionMajor) + "." + std::to_string(kVersionMinor);
 }
 
+CdcRemoteError decode_remote_error(std::string_view code) {
+    if (code == "BAD_LINE") return CdcRemoteError::BadLine;
+    if (code == "MISSING_ID") return CdcRemoteError::MissingId;
+    if (code == "BAD_ID") return CdcRemoteError::BadId;
+    if (code == "UNSUPPORTED_VERSION") return CdcRemoteError::UnsupportedVersion;
+    if (code == "STALE_ID") return CdcRemoteError::StaleId;
+    if (code == "HANDSHAKE_REQUIRED") return CdcRemoteError::HandshakeRequired;
+    if (code == "MISSING_SESSION") return CdcRemoteError::MissingSession;
+    if (code == "BAD_SESSION") return CdcRemoteError::BadSession;
+    if (code == "NO_MEDIA") return CdcRemoteError::NoMedia;
+    if (code == "IO_ERROR") return CdcRemoteError::IoError;
+    if (code == "BAD_RANGE") return CdcRemoteError::BadRange;
+    if (code == "RANGE") return CdcRemoteError::Range;
+    if (code == "READ_ONLY") return CdcRemoteError::ReadOnly;
+    if (code == "BAD_DATA") return CdcRemoteError::BadData;
+    if (code == "BAD_CRC") return CdcRemoteError::BadCrc;
+    if (code == "UNSUPPORTED") return CdcRemoteError::Unsupported;
+    return CdcRemoteError::Unknown;
+}
+
 }  // namespace
 
 CdcSessionClientRequest CdcSessionClient::begin_handshake() {
@@ -79,6 +99,7 @@ CdcSessionClientRequest CdcSessionClient::begin_eject() {
 }
 
 CdcSessionClientRequest CdcSessionClient::reserve_request(std::string line, bool handshake) {
+    remote_error_ = CdcRemoteError::None;
     remote_error_code_.clear();
     pending_id_ = next_id_;
     pending_handshake_ = handshake;
@@ -101,6 +122,7 @@ CdcSessionClientError CdcSessionClient::accept_response(std::string_view respons
     if (line.command() == "ERR") {
         const auto code = line.value_for("code");
         if (code.empty()) return CdcSessionClientError::InvalidResponse;
+        remote_error_ = decode_remote_error(code);
         remote_error_code_ = std::string(code);
         pending_id_ = 0;
         pending_handshake_ = false;
@@ -128,6 +150,7 @@ void CdcSessionClient::reset() {
     pending_handshake_ = false;
     negotiated_ = false;
     session_id_.clear();
+    remote_error_ = CdcRemoteError::None;
     remote_error_code_.clear();
 }
 
