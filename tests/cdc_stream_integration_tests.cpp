@@ -127,6 +127,27 @@ int main() {
                client.accept_response(flush_response) == protocol::CdcSessionClientError::None,
            "correlates buffered second response");
 
+    const auto sample = client.begin_get_info();
+    expect(client.cancel_pending_request(), "cancels sample request used for split count");
+    for (std::size_t split = 1; split < sample.line.size(); ++split) {
+        const auto request = client.begin_get_info();
+        expect(write_all(controller, std::string_view{request.line}.substr(0, split)) &&
+                   host::process_one_request(transport, dispatcher) ==
+                       host::SessionRunResult::NoRequest,
+               "retains request fragmented at each byte boundary");
+        expect(write_all(controller, std::string_view{request.line}.substr(split)) &&
+                   write_all(controller, "\n") &&
+                   host::process_one_request(transport, dispatcher) ==
+                       host::SessionRunResult::Processed,
+               "processes every completed byte-boundary fragment");
+        auto response = read_lines(controller, 1);
+        const bool complete_response = !response.empty() && response.back() == '\n';
+        expect(complete_response, "reads byte-boundary response line");
+        if (complete_response) response.pop_back();
+        expect(client.accept_response(response) == protocol::CdcSessionClientError::None,
+               "correlates response after each fragmentation boundary");
+    }
+
     transport.close();
     ::close(controller);
     std::filesystem::remove(path);
