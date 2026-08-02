@@ -10,6 +10,8 @@
 #include "session_dispatcher.hpp"
 #include "session_runner.hpp"
 #include "picosd/protocol/cdc_block_response.hpp"
+#include "picosd/protocol/cdc_request_deadline.hpp"
+#include "picosd/protocol/cdc_retry_controller.hpp"
 #include "picosd/protocol/cdc_session_client.hpp"
 
 namespace {
@@ -200,6 +202,35 @@ int main() {
                client.remote_error() == picosd::protocol::CdcRemoteError::ReadOnly &&
                client.remote_error_code() == "READ_ONLY",
            "read-only session rejects typed writes with a specific error");
+
+    picosd::protocol::CdcRequestDeadline deadline;
+    picosd::protocol::CdcRetryController retry{2, 5, 20};
+    const auto timed_out_info = client.begin_get_info();
+    const auto late_info_response =
+        exchange(transport, reconnected_dispatcher, timed_out_info.line);
+    expect(deadline.arm(100, 10, client) &&
+               !deadline.expire_if_due(109, client) && client.request_pending(),
+           "keeps an integrated request pending before its deadline");
+    expect(deadline.expire_if_due(110, client) && !client.request_pending() &&
+               retry.record_failure(picosd::protocol::CdcRetryAdvice::RetrySameSession,
+                                    110) == picosd::protocol::CdcRetryDecision::Wait &&
+               retry.retry_at() == 115,
+           "cancels timed-out request and schedules bounded retry");
+    expect(client.accept_response(late_info_response) ==
+               CdcSessionClientError::MismatchedResponse &&
+               !retry.consume_retry(114) && retry.consume_retry(115),
+           "rejects late response and releases retry only after backoff");
+    const auto retried_info = client.begin_get_info();
+    const auto retried_info_response =
+        exchange(transport, reconnected_dispatcher, retried_info.line);
+    expect(timed_out_info.line == "GET_INFO id=3 session=second-session" &&
+               retried_info.line == "GET_INFO id=4 session=second-session" &&
+               client.accept_response(retried_info_response) ==
+                   CdcSessionClientError::None,
+           "retry uses a fresh request id in the same negotiated session");
+    retry.record_success();
+    expect(retry.retries_scheduled() == 0,
+           "successful integrated retry restores retry budget");
 
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;
