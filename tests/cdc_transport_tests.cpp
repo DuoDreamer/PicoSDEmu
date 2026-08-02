@@ -116,7 +116,18 @@ void test_posix_oversized_input() {
     }
     expect(result == CdcTransportError::LineTooLong,
            "rejects oversized unterminated line");
-    expect(!transport.is_open(), "closes endpoint after oversized input");
+    expect(transport.is_open(), "keeps endpoint open while discarding oversized line");
+    expect(::write(controller, "discarded\nOK id=10\n", 19) == 19,
+           "terminates oversized line and sends a valid successor");
+    result = CdcTransportError::WouldBlock;
+    for (std::size_t attempt = 0;
+         attempt < 4 && result == CdcTransportError::WouldBlock;
+         ++attempt) {
+        result = transport.read_line(line);
+    }
+    expect(result == CdcTransportError::None && line == "OK id=10",
+           "resynchronizes after oversized input");
+    transport.close();
     ::close(controller);
 }
 #endif

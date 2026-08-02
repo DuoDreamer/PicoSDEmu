@@ -99,7 +99,10 @@ CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
 from one read. Native pseudo-terminal integration tests exercise fragmented
 CRLF handshakes and coalesced request/response pairs through the real POSIX
-transport and host dispatcher.
+transport and host dispatcher. If a line exceeds the transport limit before a
+terminator arrives, the receiver reports the oversized line, discards bytes
+through its next newline, and resumes parsing subsequent lines without closing
+an otherwise healthy connection.
 
 The initial command set is `HELLO`, `GET_INFO`, `MOUNT`, `READ_BLOCKS`,
 `WRITE_BLOCKS`, `FLUSH`, `EJECT`, `SET_BACKEND`, `GET_STATS`, and `STATUS`.

@@ -51,6 +51,7 @@ public:
 private:
     int descriptor_ = -1;
     std::string pending_;
+    bool discarding_oversized_line_ = false;
 };
 #endif
 
@@ -66,6 +67,7 @@ public:
 private:
     void* handle_ = nullptr;
     std::string pending_;
+    bool discarding_oversized_line_ = false;
 };
 #endif
 

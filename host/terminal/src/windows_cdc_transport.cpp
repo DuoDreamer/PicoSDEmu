@@ -21,7 +21,7 @@ CdcTransportError WindowsCdcTransport::open(std::string_view port) {
     if (!SetCommTimeouts(handle, &timeouts)) { CloseHandle(handle); return CdcTransportError::NotOpen; }
     handle_ = handle; return CdcTransportError::None;
 }
-void WindowsCdcTransport::close() { if (handle_ != nullptr) { CloseHandle(static_cast<HANDLE>(handle_)); handle_ = nullptr; } pending_.clear(); }
+void WindowsCdcTransport::close() { if (handle_ != nullptr) { CloseHandle(static_cast<HANDLE>(handle_)); handle_ = nullptr; } pending_.clear(); discarding_oversized_line_ = false; }
 bool WindowsCdcTransport::is_open() const { return handle_ != nullptr; }
 CdcTransportError WindowsCdcTransport::write_line(std::string_view line) {
     if (!is_open()) return CdcTransportError::NotOpen;
@@ -40,10 +40,20 @@ CdcTransportError WindowsCdcTransport::read_line(std::string& line) {
     char bytes[256]; DWORD count = 0;
     if (!ReadFile(static_cast<HANDLE>(handle_), bytes, sizeof(bytes), &count, nullptr)) return CdcTransportError::NotOpen;
     if (count == 0) return CdcTransportError::WouldBlock;
-    pending_.append(bytes, count); newline = pending_.find('\n');
+    if (discarding_oversized_line_) {
+        const std::string_view received(bytes, count);
+        const auto discarded_newline = received.find('\n');
+        if (discarded_newline == std::string_view::npos) return CdcTransportError::WouldBlock;
+        discarding_oversized_line_ = false;
+        pending_.append(received.substr(discarded_newline + 1));
+    } else {
+        pending_.append(bytes, count);
+    }
+    newline = pending_.find('\n');
     if (newline == std::string::npos) {
         if (pending_.size() <= kMaximumLineLength) return CdcTransportError::WouldBlock;
-        close();
+        pending_.clear();
+        discarding_oversized_line_ = true;
         return CdcTransportError::LineTooLong;
     }
     line = pending_.substr(0, newline); pending_.erase(0, newline + 1); if (!line.empty() && line.back() == '\r') line.pop_back();

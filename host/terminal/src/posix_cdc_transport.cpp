@@ -22,7 +22,7 @@ CdcTransportError PosixCdcTransport::open(std::string_view port) {
     if (tcsetattr(descriptor_, TCSANOW, &settings) != 0) { close(); return CdcTransportError::NotOpen; }
     return CdcTransportError::None;
 }
-void PosixCdcTransport::close() { if (descriptor_ >= 0) { (void)::close(descriptor_); descriptor_ = -1; } pending_.clear(); }
+void PosixCdcTransport::close() { if (descriptor_ >= 0) { (void)::close(descriptor_); descriptor_ = -1; } pending_.clear(); discarding_oversized_line_ = false; }
 bool PosixCdcTransport::is_open() const { return descriptor_ >= 0; }
 CdcTransportError PosixCdcTransport::write_line(std::string_view line) {
     if (!is_open()) return CdcTransportError::NotOpen;
@@ -58,13 +58,22 @@ CdcTransportError PosixCdcTransport::read_line(std::string& line) {
     char bytes[256];
     ssize_t count = 0;
     do { count = ::read(descriptor_, bytes, sizeof(bytes)); } while (count < 0 && errno == EINTR);
-    if (count > 0) pending_.append(bytes, static_cast<std::size_t>(count));
+    if (count > 0 && discarding_oversized_line_) {
+        const std::string_view received(bytes, static_cast<std::size_t>(count));
+        const auto discarded_newline = received.find('\n');
+        if (discarded_newline == std::string_view::npos) return CdcTransportError::WouldBlock;
+        discarding_oversized_line_ = false;
+        pending_.append(received.substr(discarded_newline + 1));
+    } else if (count > 0) {
+        pending_.append(bytes, static_cast<std::size_t>(count));
+    }
     if (count == 0) return CdcTransportError::NotOpen;
     if (count < 0 && errno != EAGAIN && errno != EWOULDBLOCK) return CdcTransportError::NotOpen;
     newline = pending_.find('\n');
     if (newline == std::string::npos) {
         if (pending_.size() <= kMaximumLineLength) return CdcTransportError::WouldBlock;
-        close();
+        pending_.clear();
+        discarding_oversized_line_ = true;
         return CdcTransportError::LineTooLong;
     }
     line = pending_.substr(0, newline); pending_.erase(0, newline + 1);
