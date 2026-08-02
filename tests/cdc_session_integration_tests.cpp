@@ -232,6 +232,33 @@ int main() {
     expect(retry.retries_scheduled() == 0,
            "successful integrated retry restores retry budget");
 
+    picosd::protocol::CdcRetryController limited_retry{2, 1, 2};
+    for (std::size_t attempt = 0; attempt < 3; ++attempt) {
+        const auto request = client.begin_get_info();
+        const auto late_response =
+            exchange(transport, reconnected_dispatcher, request.line);
+        const std::uint64_t now = 200 + static_cast<std::uint64_t>(attempt) * 10;
+        expect(deadline.arm(now, 1, client) &&
+                   deadline.expire_if_due(now + 1, client) &&
+                   client.accept_response(late_response) ==
+                       CdcSessionClientError::MismatchedResponse,
+               "each exhausted-retry attempt times out and rejects its late response");
+        const auto decision = limited_retry.record_failure(
+            picosd::protocol::CdcRetryAdvice::RetrySameSession, now + 1);
+        if (attempt < 2) {
+            expect(decision == picosd::protocol::CdcRetryDecision::Wait &&
+                       limited_retry.consume_retry(limited_retry.retry_at()),
+                   "bounded retry attempt becomes available after backoff");
+        } else {
+            expect(decision == picosd::protocol::CdcRetryDecision::Exhausted,
+                   "retry controller stops after the configured attempt limit");
+        }
+    }
+    expect(limited_retry.retries_scheduled() == 2 && !client.request_pending() &&
+               limited_retry.poll(1000) ==
+                   picosd::protocol::CdcRetryDecision::NoRetry,
+           "exhausted retry flow leaves no request or retry scheduled");
+
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;
 }

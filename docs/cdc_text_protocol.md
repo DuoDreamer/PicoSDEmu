@@ -96,7 +96,9 @@ request; polling at or after the saturated deadline cancels the pending request.
 If a response already completed the request, polling only clears the deadline.
 Retryable timeouts use bounded backoff and a fresh monotonically increasing
 request ID in the existing negotiated session. A response for the cancelled ID
-remains stale and cannot complete the replacement request.
+remains stale and cannot complete the replacement request. Once the configured
+retry budget is exhausted, no further request is scheduled until the caller
+starts a new operation or explicitly resets retry policy.
 
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
