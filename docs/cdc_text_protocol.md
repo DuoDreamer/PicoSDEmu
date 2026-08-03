@@ -107,6 +107,8 @@ Transient `IO_ERROR` responses retain the negotiated session and use bounded
 same-session retry policy.
 `CdcRetainedOperation` keeps the logical command parameters and block payload so
 a retry can construct an equivalent request with a fresh correlation ID.
+`CdcOperationCoordinator` binds retained operations to deadlines and retry state,
+including timeout backoff, terminal failure, and resume after renegotiation.
 
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines

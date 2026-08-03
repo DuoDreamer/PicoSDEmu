@@ -1,5 +1,6 @@
 add_library(picosd-protocol-core
     src/cdc_block_response.cpp
+    src/cdc_operation_coordinator.cpp
     src/cdc_request_deadline.cpp
     src/cdc_retained_operation.cpp
     src/cdc_retry_controller.cpp

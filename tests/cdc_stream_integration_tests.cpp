@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <fstream>
 #include <iostream>
+#include <poll.h>
 #include <string>
 #include <string_view>
 #include <unistd.h>
@@ -39,11 +40,24 @@ std::string read_lines(int descriptor, std::size_t line_count) {
     std::array<char, 512> bytes{};
     while (static_cast<std::size_t>(std::count(result.begin(), result.end(), '\n')) <
            line_count) {
+        pollfd readable{descriptor, POLLIN, 0};
+        if (::poll(&readable, 1, 1000) <= 0 || (readable.revents & POLLIN) == 0) return {};
         const auto count = ::read(descriptor, bytes.data(), bytes.size());
         if (count <= 0) return {};
         result.append(bytes.data(), static_cast<std::size_t>(count));
     }
     return result;
+}
+
+picosd::host::SessionRunResult process_until(
+    picosd::host::CdcTransport& transport,
+    picosd::host::SessionDispatcher& dispatcher) {
+    for (std::size_t attempt = 0; attempt < 100; ++attempt) {
+        const auto result = picosd::host::process_one_request(transport, dispatcher);
+        if (result != picosd::host::SessionRunResult::NoRequest) return result;
+        ::usleep(1000);
+    }
+    return picosd::host::SessionRunResult::NoRequest;
 }
 }  // namespace
 
@@ -91,7 +105,7 @@ int main() {
                    host::SessionRunResult::NoRequest,
            "retains second handshake fragment");
     expect(write_all(controller, hello.line.substr(12) + "\r\n") &&
-               host::process_one_request(transport, dispatcher) ==
+               process_until(transport, dispatcher) ==
                    host::SessionRunResult::Processed,
            "processes completed fragmented CRLF handshake");
     auto responses = read_lines(controller, 1);
@@ -106,9 +120,9 @@ int main() {
     const std::string queued_flush = "FLUSH id=3 session=stream-session";
     expect(write_all(controller, info.line + "\n" + queued_flush + "\n"),
            "coalesces two requests into one stream write");
-    expect(host::process_one_request(transport, dispatcher) ==
+    expect(process_until(transport, dispatcher) ==
                host::SessionRunResult::Processed &&
-               host::process_one_request(transport, dispatcher) ==
+               process_until(transport, dispatcher) ==
                    host::SessionRunResult::Processed,
            "host drains coalesced requests independently");
     responses = read_lines(controller, 2);
@@ -137,7 +151,7 @@ int main() {
                "retains request fragmented at each byte boundary");
         expect(write_all(controller, std::string_view{request.line}.substr(split)) &&
                    write_all(controller, "\n") &&
-                   host::process_one_request(transport, dispatcher) ==
+                   process_until(transport, dispatcher) ==
                        host::SessionRunResult::Processed,
                "processes every completed byte-boundary fragment");
         auto response = read_lines(controller, 1);
