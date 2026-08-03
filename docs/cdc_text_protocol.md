@@ -100,6 +100,10 @@ remains stale and cannot complete the replacement request. Once the configured
 retry budget is exhausted, no further request is scheduled until the caller
 starts a new operation or explicitly resets retry policy.
 
+Session-state errors classified for renegotiation require a transport/session
+reset followed by a new `HELLO`; same-session replay is not permitted. Validation
+errors such as `BAD_CRC` are terminal for that operation and are not retried.
+
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
 from one read. Native pseudo-terminal integration tests exercise fragmented

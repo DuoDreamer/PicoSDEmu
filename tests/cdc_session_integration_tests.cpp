@@ -119,7 +119,9 @@ int main() {
     expect(corrupt_response == "ERR id=6 code=BAD_CRC" &&
                client.accept_response(corrupt_response) == CdcSessionClientError::RemoteError &&
                client.remote_error() == picosd::protocol::CdcRemoteError::BadCrc &&
-               client.remote_error_code() == "BAD_CRC",
+               client.remote_error_code() == "BAD_CRC" &&
+               picosd::protocol::retry_advice(client.remote_error()) ==
+                   picosd::protocol::CdcRetryAdvice::DoNotRetry,
            "corrupt typed write is rejected with a specific remote error");
     const auto unchanged_read = client.begin_read_block(0);
     const auto unchanged_response = exchange(transport, dispatcher, unchanged_read.line);
@@ -258,6 +260,37 @@ int main() {
                limited_retry.poll(1000) ==
                    picosd::protocol::CdcRetryDecision::NoRetry,
            "exhausted retry flow leaves no request or retry scheduled");
+
+    auto stale_session_request = client.begin_get_info();
+    const auto session_position = stale_session_request.line.find("second-session");
+    stale_session_request.line.replace(session_position, std::string{"second-session"}.size(),
+                                       "stale-session");
+    const auto stale_session_response =
+        exchange(transport, reconnected_dispatcher, stale_session_request.line);
+    expect(stale_session_response == "ERR id=8 code=BAD_SESSION" &&
+               client.accept_response(stale_session_response) ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::BadSession &&
+               retry.record_failure(picosd::protocol::retry_advice(client.remote_error()),
+                                    300) ==
+                   picosd::protocol::CdcRetryDecision::Renegotiate,
+           "bad session routes the integrated operation to renegotiation");
+
+    transport.close();
+    client.reset();
+    retry.record_success();
+    expect(transport.open("renegotiated") == picosd::host::CdcTransportError::None,
+           "reopens transport for renegotiation");
+    picosd::host::SessionDispatcher renegotiated_dispatcher{
+        image, "SDSC", false, "third-session"};
+    const auto renegotiation = client.begin_handshake();
+    const auto renegotiation_response =
+        exchange(transport, renegotiated_dispatcher, renegotiation.line);
+    expect(renegotiation.line == "HELLO id=1 version=0.1" &&
+               client.accept_response(renegotiation_response) ==
+                   CdcSessionClientError::None &&
+               client.session_id() == "third-session",
+           "renegotiation establishes a fresh transport session");
 
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;
