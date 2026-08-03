@@ -105,6 +105,8 @@ reset followed by a new `HELLO`; same-session replay is not permitted. Validatio
 errors such as `BAD_CRC` are terminal for that operation and are not retried.
 Transient `IO_ERROR` responses retain the negotiated session and use bounded
 same-session retry policy.
+`CdcRetainedOperation` keeps the logical command parameters and block payload so
+a retry can construct an equivalent request with a fresh correlation ID.
 
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
