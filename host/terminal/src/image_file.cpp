@@ -13,12 +13,17 @@
 namespace picosd::host {
 namespace { constexpr std::uint64_t kBlockSize = 512; }
 
-ImageFile::~ImageFile() {
+ImageFile::~ImageFile() { close(); }
+
+void ImageFile::close() {
+    stream_.close();
+    stream_.clear();
 #if defined(_WIN32)
     if (lock_handle_ != nullptr) {
         OVERLAPPED overlap {};
         (void)UnlockFileEx(static_cast<HANDLE>(lock_handle_), 0, MAXDWORD, MAXDWORD, &overlap);
         (void)CloseHandle(static_cast<HANDLE>(lock_handle_));
+        lock_handle_ = nullptr;
     }
 #else
     if (file_descriptor_ >= 0) {
@@ -26,12 +31,16 @@ ImageFile::~ImageFile() {
         lock.l_type = F_UNLCK;
         lock.l_whence = SEEK_SET;
         (void)fcntl(file_descriptor_, F_SETLK, &lock);
-        (void)close(file_descriptor_);
+        (void)::close(file_descriptor_);
+        file_descriptor_ = -1;
     }
 #endif
+    block_count_ = 0;
+    writable_ = false;
 }
 
 bool ImageFile::open(const std::filesystem::path& path, bool writable) {
+    close();
     const auto size = std::filesystem::file_size(path);
     if (size == 0 || size % kBlockSize != 0 || size / kBlockSize > std::numeric_limits<std::uint64_t>::max()) return false;
 #if defined(_WIN32)
@@ -50,7 +59,7 @@ bool ImageFile::open(const std::filesystem::path& path, bool writable) {
     struct flock lock {};
     lock.l_type = F_WRLCK;
     lock.l_whence = SEEK_SET;
-    if (fcntl(file_descriptor_, F_SETLK, &lock) != 0) { (void)close(file_descriptor_); file_descriptor_ = -1; return false; }
+    if (fcntl(file_descriptor_, F_SETLK, &lock) != 0) { (void)::close(file_descriptor_); file_descriptor_ = -1; return false; }
 #endif
     stream_.open(path, std::ios::binary | std::ios::in | (writable ? std::ios::out : std::ios::openmode{}));
     if (!stream_) {
@@ -64,7 +73,7 @@ bool ImageFile::open(const std::filesystem::path& path, bool writable) {
         lock.l_type = F_UNLCK;
         lock.l_whence = SEEK_SET;
         (void)fcntl(file_descriptor_, F_SETLK, &lock);
-        (void)close(file_descriptor_);
+        (void)::close(file_descriptor_);
         file_descriptor_ = -1;
 #endif
         return false;
@@ -84,6 +93,10 @@ bool ImageFile::write_block(std::uint64_t lba, const std::uint8_t* input) {
     stream_.seekp(static_cast<std::streamoff>(lba * kBlockSize)); stream_.write(reinterpret_cast<const char*>(input), kBlockSize);
     return stream_.good();
 }
-bool ImageFile::flush() { stream_.flush(); return stream_.good(); }
+bool ImageFile::flush() {
+    if (!stream_.is_open()) return false;
+    stream_.flush();
+    return stream_.good();
+}
 std::uint64_t ImageFile::block_count() const { return block_count_; }
 }  // namespace picosd::host

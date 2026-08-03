@@ -103,6 +103,8 @@ starts a new operation or explicitly resets retry policy.
 Session-state errors classified for renegotiation require a transport/session
 reset followed by a new `HELLO`; same-session replay is not permitted. Validation
 errors such as `BAD_CRC` are terminal for that operation and are not retried.
+Transient `IO_ERROR` responses retain the negotiated session and use bounded
+same-session retry policy.
 
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines

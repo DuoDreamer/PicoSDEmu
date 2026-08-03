@@ -42,6 +42,9 @@ int main() {
     expect(readback == written, "readback matches write");
     expect(!image.read_block(2, readback.data()), "rejects out-of-range read");
     expect(!image.write_block(2, written.data()), "rejects out-of-range write");
+    image.close();
+    expect(image.block_count() == 0 && !image.flush(), "close clears image state");
+    expect(image.open(path, true), "reopens image after explicit close");
 
 #if !defined(_WIN32)
     const pid_t child = fork();

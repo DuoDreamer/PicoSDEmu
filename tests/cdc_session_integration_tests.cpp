@@ -292,6 +292,18 @@ int main() {
                client.session_id() == "third-session",
            "renegotiation establishes a fresh transport session");
 
+    image.close();
+    const auto failed_flush = client.begin_flush();
+    const auto failed_flush_response =
+        exchange(transport, renegotiated_dispatcher, failed_flush.line);
+    expect(failed_flush_response == "ERR id=2 code=IO_ERROR" &&
+               client.accept_response(failed_flush_response) ==
+                   CdcSessionClientError::RemoteError &&
+               client.remote_error() == picosd::protocol::CdcRemoteError::IoError &&
+               retry.record_failure(picosd::protocol::retry_advice(client.remote_error()),
+                                    400) == picosd::protocol::CdcRetryDecision::Wait,
+           "closed image routes real host I/O failure to same-session retry");
+
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;
 }

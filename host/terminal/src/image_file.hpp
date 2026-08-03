@@ -15,6 +15,7 @@ public:
     ImageFile& operator=(const ImageFile&) = delete;
 
     bool open(const std::filesystem::path& path, bool writable);
+    void close();
     bool read_block(std::uint64_t lba, std::uint8_t* output);
     bool write_block(std::uint64_t lba, const std::uint8_t* input);
     bool flush();
