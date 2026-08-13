@@ -1,5 +1,5 @@
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -21,8 +21,7 @@ void expect(bool condition, const char *message) {
 
 void negotiate(Backend &backend) {
     const auto request = backend.begin_handshake();
-    expect(request.error == picosd::protocol::CdcSessionClientError::None,
-           "handshake starts");
+    expect(request.error == picosd::protocol::CdcSessionClientError::None, "handshake starts");
     expect(backend.accept_handshake("OK id=1 version=0.1 session=test") ==
                picosd::protocol::CdcSessionClientError::None,
            "handshake completes");
@@ -33,15 +32,14 @@ std::string read_response(std::uint64_t id, std::uint64_t lba, const CdcBlockDat
     std::snprintf(checksum, sizeof(checksum), "%08X",
                   picosd::protocol::crc32(data.data(), data.size()));
     return "OK id=" + std::to_string(id) + " session=test lba=" + std::to_string(lba) +
-           " count=1 encoding=BASE64 crc32=" + checksum + " data=" +
-           picosd::protocol::encode_base64(data.data(), data.size());
+           " count=1 encoding=BASE64 crc32=" + checksum +
+           " data=" + picosd::protocol::encode_base64(data.data(), data.size());
 }
 } // namespace
 
 int main() {
     Backend backend{100, 0, 1, 1};
-    expect(backend.begin_read(4, 1, 0).error ==
-               picosd::protocol::CdcSessionClientError::Busy,
+    expect(backend.begin_read(4, 1, 0).error == picosd::protocol::CdcSessionClientError::Busy,
            "I/O is rejected before negotiation");
     negotiate(backend);
 
@@ -49,8 +47,7 @@ int main() {
     for (std::size_t index = 0; index < source.size(); ++index)
         source[index] = static_cast<std::uint8_t>(index);
     const auto read = backend.begin_read(4, 7, 10);
-    expect(read.error == picosd::protocol::CdcSessionClientError::None,
-           "read request starts");
+    expect(read.error == picosd::protocol::CdcSessionClientError::None, "read request starts");
     expect(backend.available_buffers() == 1, "read reserves one fixed buffer");
     expect(backend.accept_response(read_response(2, 5, source), 11) ==
                CdcOperationState::AwaitingResponse,
@@ -63,22 +60,35 @@ int main() {
 
     source[0] = 0xa5;
     const auto write = backend.begin_write(9, 7, source, 20);
-    expect(write.error == picosd::protocol::CdcSessionClientError::None,
-           "write request starts");
+    expect(write.error == picosd::protocol::CdcSessionClientError::None, "write request starts");
     expect(!backend.copy_ready(9, 7, output), "write is not ready before host acknowledgement");
     expect(backend.accept_response("OK id=3 session=test", 21) == CdcOperationState::Idle,
            "host acknowledgement completes write-through operation");
     expect(backend.copy_ready(9, 7, output) && output == source,
            "acknowledged write retains its sector until consumed");
 
+    const auto cached = backend.begin_read(11, 7, 22);
+    expect(cached.error == picosd::protocol::CdcSessionClientError::None,
+           "same media generation remains available");
+    expect(backend.accept_response(read_response(4, 11, source), 23) == CdcOperationState::Idle,
+           "read for current generation completes");
+    backend.media_changed(8);
+    expect(backend.has_media_generation() && backend.media_generation() == 8,
+           "media change records the new generation");
+    expect(!backend.copy_ready(11, 7, output),
+           "media change invalidates ready data from the old generation");
+    expect(backend.begin_read(12, 7, 24).error == picosd::protocol::CdcSessionClientError::Busy,
+           "old-generation work is rejected after a media change");
+
     const auto pending = backend.begin_read(10, 8, 30);
-    expect(pending.error == picosd::protocol::CdcSessionClientError::None,
-           "second read starts");
+    expect(pending.error == picosd::protocol::CdcSessionClientError::None, "second read starts");
     backend.disconnect();
-    expect(!backend.negotiated() && !backend.transfer_active() &&
-               backend.available_buffers() == 2,
+    expect(!backend.negotiated() && !backend.transfer_active() && backend.available_buffers() == 2,
            "disconnect cancels I/O and invalidates every buffer");
     expect(!backend.copy_ready(10, 8, output), "disconnected read cannot become visible");
+
+    backend.invalidate();
+    expect(!backend.has_media_generation(), "full invalidation forgets media identity");
 
     std::cout << "cdc write-through backend tests passed\n";
     return 0;

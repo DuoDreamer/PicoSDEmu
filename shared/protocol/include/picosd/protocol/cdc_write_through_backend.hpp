@@ -10,7 +10,11 @@
 
 namespace picosd::protocol {
 
-enum class CdcBackendTransferType { None, Read, Write };
+enum class CdcBackendTransferType {
+    None,
+    Read,
+    Write
+};
 
 // Owns the fixed sector storage and the single in-flight CDC request used by
 // the firmware backend. Writes are not made visible as complete until the host
@@ -29,12 +33,15 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         return client_.accept_response(response);
     }
 
-    [[nodiscard]] CdcSessionClientRequest begin_read(std::uint64_t lba,
-                                                     std::uint64_t generation,
+    [[nodiscard]] CdcSessionClientRequest begin_read(std::uint64_t lba, std::uint64_t generation,
                                                      std::uint64_t now) {
-        if (!ready_for_transfer()) return {CdcSessionClientError::Busy, {}};
+        if (!ready_for_transfer())
+            return {CdcSessionClientError::Busy, {}};
+        if (!select_generation(generation))
+            return {CdcSessionClientError::Busy, {}};
         const auto handle = buffers_.reserve_read(lba, generation);
-        if (handle == BufferPool::kInvalidHandle) return {CdcSessionClientError::Busy, {}};
+        if (handle == BufferPool::kInvalidHandle)
+            return {CdcSessionClientError::Busy, {}};
 
         CdcRetainedOperation operation;
         operation.retain_read_block(lba);
@@ -47,13 +54,15 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         return request;
     }
 
-    [[nodiscard]] CdcSessionClientRequest begin_write(std::uint64_t lba,
-                                                      std::uint64_t generation,
-                                                      const CdcBlockData &data,
-                                                      std::uint64_t now) {
-        if (!ready_for_transfer()) return {CdcSessionClientError::Busy, {}};
+    [[nodiscard]] CdcSessionClientRequest begin_write(std::uint64_t lba, std::uint64_t generation,
+                                                      const CdcBlockData &data, std::uint64_t now) {
+        if (!ready_for_transfer())
+            return {CdcSessionClientError::Busy, {}};
+        if (!select_generation(generation))
+            return {CdcSessionClientError::Busy, {}};
         const auto handle = buffers_.reserve_write(lba, generation, data);
-        if (handle == BufferPool::kInvalidHandle) return {CdcSessionClientError::Busy, {}};
+        if (handle == BufferPool::kInvalidHandle)
+            return {CdcSessionClientError::Busy, {}};
 
         CdcRetainedOperation operation;
         operation.retain_write_block(lba, data);
@@ -66,22 +75,21 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         return request;
     }
 
-    [[nodiscard]] CdcOperationState accept_response(std::string_view response,
-                                                    std::uint64_t now) {
+    [[nodiscard]] CdcOperationState accept_response(std::string_view response, std::uint64_t now) {
         CdcReadBlock decoded;
-        const bool valid_read = transfer_type_ != CdcBackendTransferType::Read ||
-                                response.rfind("ERR ", 0) == 0 ||
-                                (decode_read_block_response(response, decoded) ==
-                                     CdcBlockResponseError::None &&
-                                 decoded.lba == lba_);
-        if (!valid_read) return coordinator_.state();
+        const bool valid_read =
+            transfer_type_ != CdcBackendTransferType::Read || response.rfind("ERR ", 0) == 0 ||
+            (decode_read_block_response(response, decoded) == CdcBlockResponseError::None &&
+             decoded.lba == lba_);
+        if (!valid_read)
+            return coordinator_.state();
 
         const auto state = coordinator_.accept_response(response, now, client_);
         if (state == CdcOperationState::Idle) {
-            const bool completed = transfer_type_ == CdcBackendTransferType::Read
-                                       ? buffers_.complete_read(handle_, lba_, generation_,
-                                                                decoded.data)
-                                       : buffers_.complete_write(handle_, lba_, generation_);
+            const bool completed =
+                transfer_type_ == CdcBackendTransferType::Read
+                    ? buffers_.complete_read(handle_, lba_, generation_, decoded.data)
+                    : buffers_.complete_write(handle_, lba_, generation_);
             if (!completed) {
                 abandon_transfer();
                 return CdcOperationState::Failed;
@@ -95,11 +103,14 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
 
     [[nodiscard]] CdcOperationState expire_if_due(std::uint64_t now) {
         const auto state = coordinator_.expire_if_due(now, client_);
-        if (state == CdcOperationState::Failed) abandon_transfer();
+        if (state == CdcOperationState::Failed)
+            abandon_transfer();
         return state;
     }
 
-    [[nodiscard]] CdcOperationState poll(std::uint64_t now) { return coordinator_.poll(now); }
+    [[nodiscard]] CdcOperationState poll(std::uint64_t now) {
+        return coordinator_.poll(now);
+    }
 
     [[nodiscard]] CdcSessionClientRequest issue_retry(std::uint64_t now) {
         return coordinator_.issue_retry(now, client_);
@@ -109,7 +120,8 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
                                   CdcBlockData &output) {
         const auto handle = buffers_.find_ready(lba, generation);
         const auto *slot = buffers_.get(handle);
-        if (slot == nullptr) return false;
+        if (slot == nullptr)
+            return false;
         output = slot->data;
         return buffers_.release(handle);
     }
@@ -118,20 +130,51 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         coordinator_.disconnect(client_, CdcDisconnectPolicy::CancelOperation);
         buffers_.clear();
         clear_transfer_tracking();
+        has_generation_ = false;
+        media_generation_ = 0;
     }
 
     void invalidate() {
         coordinator_.cancel(client_);
         buffers_.clear();
         clear_transfer_tracking();
+        has_generation_ = false;
+        media_generation_ = 0;
     }
 
-    [[nodiscard]] bool negotiated() const { return client_.negotiated(); }
+    // A media generation identifies one stable mounted image. Changing it is
+    // an invalidation barrier: no response or buffered sector from the old
+    // image may become visible after this call. The CDC session remains
+    // negotiated because a host-side remount does not imply a USB reconnect.
+    void media_changed(std::uint64_t generation) {
+        if (has_generation_ && generation == media_generation_)
+            return;
+        coordinator_.cancel(client_);
+        buffers_.clear();
+        clear_transfer_tracking();
+        media_generation_ = generation;
+        has_generation_ = true;
+    }
+
+    [[nodiscard]] bool has_media_generation() const {
+        return has_generation_;
+    }
+    [[nodiscard]] std::uint64_t media_generation() const {
+        return media_generation_;
+    }
+
+    [[nodiscard]] bool negotiated() const {
+        return client_.negotiated();
+    }
     [[nodiscard]] bool transfer_active() const {
         return transfer_type_ != CdcBackendTransferType::None;
     }
-    [[nodiscard]] std::size_t available_buffers() const { return buffers_.available(); }
-    [[nodiscard]] CdcOperationState state() const { return coordinator_.state(); }
+    [[nodiscard]] std::size_t available_buffers() const {
+        return buffers_.available();
+    }
+    [[nodiscard]] CdcOperationState state() const {
+        return coordinator_.state();
+    }
 
   private:
     using BufferPool = CdcSectorBufferPool<Capacity>;
@@ -139,6 +182,15 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     [[nodiscard]] bool ready_for_transfer() const {
         return client_.negotiated() && !transfer_active() &&
                coordinator_.state() == CdcOperationState::Idle;
+    }
+
+    [[nodiscard]] bool select_generation(std::uint64_t generation) {
+        if (!has_generation_) {
+            media_generation_ = generation;
+            has_generation_ = true;
+            return true;
+        }
+        return media_generation_ == generation;
     }
 
     void retain_transfer(CdcBackendTransferType type, std::size_t handle, std::uint64_t lba,
@@ -157,7 +209,8 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     }
 
     void abandon_transfer() {
-        if (handle_ != BufferPool::kInvalidHandle) (void)buffers_.release(handle_);
+        if (handle_ != BufferPool::kInvalidHandle)
+            (void)buffers_.release(handle_);
         clear_transfer_tracking();
     }
 
@@ -168,6 +221,8 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     std::size_t handle_ = BufferPool::kInvalidHandle;
     std::uint64_t lba_ = 0;
     std::uint64_t generation_ = 0;
+    std::uint64_t media_generation_ = 0;
+    bool has_generation_ = false;
 };
 
 } // namespace picosd::protocol
