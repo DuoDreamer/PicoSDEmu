@@ -270,22 +270,29 @@ required test passes, results are recorded, and its license/provenance gate
 passes. A failure returns the work to the implementation step that introduced
 it; tests must not be weakened to make a gate pass.
 
+**Status snapshot (2026-08-13):** Checkboxes below track implementation only. A
+checked step means its code or documentation deliverable is present; it does not
+mean the phase test stage or exit gate has passed. The project is currently in
+Phase 2, with its hardware validation and exit gate still outstanding. Later-phase
+work checked below has been implemented ahead of that gate but does not advance
+the current phase.
+
 ### Phase 0 — governance, specifications, and test foundations
 
 **Entry:** repository skeleton and MIT `LICENSE` are present.
 
 **Implementation steps:**
 
-1. Add contribution rules that require original work and provenance declarations.
-2. Create `docs/references.md` for normative documents and a dependency register
+1. [x] Add contribution rules that require original work and provenance declarations.
+2. [x] Create `docs/references.md` for normative documents and a dependency register
    containing purpose, version, source, license, and distribution status.
-3. Write project-owned specifications for the supported SD SPI behavior, USB
+3. [x] Write project-owned specifications for the supported SD SPI behavior, USB
    framing, errors, timeouts, cache semantics, and media ownership.
-4. Select fixed-width wire types and write byte-level golden vectors by hand from
+4. [x] Select fixed-width wire types and write byte-level golden vectors by hand from
    the project protocol specification.
-5. Establish native C++ unit-test and formatting/static-analysis targets without
+5. [ ] Establish native C++ unit-test and formatting/static-analysis targets without
    importing a test framework; use a small project-owned test runner.
-6. Design a second-Pico SPI-master exerciser and define reproducible logic-analyser
+6. [x] Design a second-Pico SPI-master exerciser and define reproducible logic-analyser
    measurements for CS, SCK, MOSI, MISO, response delay, and tri-state behavior.
 
 **Test stage A — repository and specification checks:**
@@ -307,15 +314,15 @@ items.
 
 **Implementation steps:**
 
-1. Implement project-owned CRC7, CRC16, and CRC32 functions from their published
+1. [x] Implement project-owned CRC7, CRC16, and CRC32 functions from their published
    polynomial definitions, with no lookup table copied from elsewhere.
-2. Implement bounds-checked USB CDC text-line parsing and formatting with fixed
+2. [x] Implement bounds-checked USB CDC text-line parsing and formatting with fixed
    token limits and no packed compiler-dependent wire structs.
-3. Implement SD command decoding and response construction as a host-buildable
+3. [x] Implement SD command decoding and response construction as a host-buildable
    library with no Pico SDK dependency.
-4. Implement an explicit card state model (`PowerUp`, `Idle`, `Ready`, `Transfer`,
+4. [x] Implement an explicit card state model (`PowerUp`, `Idle`, `Ready`, `Transfer`,
    `ReceivingData`, `Busy`, and `Fault`) and a deterministic RAM block backend.
-5. Generate synthetic OCR, CID, and CSD fields from configured capacity.
+5. [x] Generate synthetic OCR, CID, and CSD fields from configured capacity.
 
 **Test stage B — deterministic native tests:**
 
@@ -338,14 +345,14 @@ error paths targeted by the specification, and passes provenance review.
 
 **Implementation steps:**
 
-1. Choose and document Pico 2 GPIO assignments and electrical requirements.
-2. Write original RP2350 PIO programs to receive MOSI and transmit MISO while
+1. [x] Choose and document Pico 2 GPIO assignments and electrical requirements.
+2. [ ] Write original RP2350 PIO programs to receive MOSI and transmit MISO while
    respecting CS boundaries; add DMA-backed fixed-size queues.
-3. Connect PIO byte events to the Phase 1 command model without dynamic allocation
+3. [x] Connect PIO byte events to the Phase 1 command model without dynamic allocation
    or blocking calls in interrupt/timing-critical paths.
-4. Support power-up clocks, `CMD0`, `CMD8`, `CMD55`/`ACMD41`, `CMD58`, register
+4. [x] Support power-up clocks, `CMD0`, `CMD8`, `CMD55`/`ACMD41`, `CMD58`, register
    reads, `CMD13`, `CMD16`, `CMD17`, and `CMD24` against the RAM backend.
-5. Add counters for queue overflow, underrun, aborted transaction, CRC error, and
+5. [ ] Add counters for queue overflow, underrun, aborted transaction, CRC error, and
    timeout; debugging output must not alter SPI timing.
 
 **Test stage C — electrical and timing tests:**
@@ -369,17 +376,17 @@ mismatch or electrical violation.
 
 **Implementation steps:**
 
-1. Implement original TinyUSB device integration using only the separately
+1. [ ] Implement original TinyUSB device integration using only the separately
    installed Pico SDK APIs; do not copy SDK examples into project source.
-2. Implement text-line framing, request IDs, bounded multi-request queues,
+2. [x] Implement text-line framing, request IDs, bounded multi-request queues,
    session IDs, handshake/version negotiation, and CRC32 validation.
-3. Implement the Linux host adapter with native APIs and the project-owned
+3. [x] Implement the Linux host adapter with native APIs and the project-owned
    transport interface.
-4. Extend the console application with device discovery, `serve`, `mount`,
+4. [ ] Extend the console application with device discovery, `serve`, `mount`,
    `eject`, `status`, and `flush` commands.
-5. Implement positional image reads/writes, image-size validation, read-only mode,
+5. [x] Implement positional image reads/writes, image-size validation, read-only mode,
    exclusive ownership, capacity reporting, and explicit flush.
-6. Connect the Pico USB backend to the SD model using write-through behavior and
+6. [ ] Connect the Pico USB backend to the SD model using write-through behavior and
    a fixed pool of aligned 512-byte sector buffers.
 
 **Test stage D — transport and image integration:**
@@ -404,14 +411,14 @@ bounded and recoverable, and clean eject leaves a valid, byte-correct image.
 
 **Implementation steps:**
 
-1. Add `CMD18`, `CMD12`, `CMD25`, and `ACMD23` behavior.
-2. Add sequential read prefetch and safe request coalescing while retaining
+1. [x] Add `CMD18`, `CMD12`, `CMD25`, and `ACMD23` behavior.
+2. [ ] Add sequential read prefetch and safe request coalescing while retaining
    write-through as the default.
-3. Implement cache invalidation on mount, eject, reconnect, backend change, and
+3. [ ] Implement cache invalidation on mount, eject, reconnect, backend change, and
    media-generation change; serialize reads against overlapping writes.
-4. Add statistics for latency distributions, throughput, hit rate, busy duration,
+4. [ ] Add statistics for latency distributions, throughput, hit rate, busy duration,
    timeouts, retries, and protocol faults.
-5. Optimize only after collecting traces; preserve a correctness-first build mode.
+5. [ ] Optimize only after collecting traces; preserve a correctness-first build mode.
 
 **Test stage E — concurrency, consistency, and endurance:**
 
@@ -435,11 +442,11 @@ is lost after flush, and the endurance image matches the oracle.
 
 **Implementation steps:**
 
-1. Document and approve the Windows SDK/driver prerequisites and native USB API.
-2. Implement the Windows USB, exclusive-file-access, positional-I/O, and flush
+1. [ ] Document and approve the Windows SDK/driver prerequisites and native USB API.
+2. [x] Implement the Windows USB, exclusive-file-access, positional-I/O, and flush
    adapters without third-party libraries.
-3. Keep commands, messages, exit codes, and configuration compatible with Linux.
-4. Add Windows build and packaging scripts that contain only project-authored text.
+3. [x] Keep commands, messages, exit codes, and configuration compatible with Linux.
+4. [ ] Add Windows build and packaging scripts that contain only project-authored text.
 
 **Test stage F — cross-platform equivalence:**
 
@@ -459,13 +466,13 @@ same documented behavior and recovery semantics.
 
 **Implementation steps:**
 
-1. Write an original SPI-master physical-card driver from the applicable public
+1. [ ] Write an original SPI-master physical-card driver from the applicable public
    specifications using the Pico SDK hardware APIs.
-2. Implement it behind `BlockBackend` with card detect, write protect, capacity,
+2. [ ] Implement it behind `BlockBackend` with card detect, write protect, capacity,
    timeout, flush, and removal handling.
-3. Add an arbiter that prevents emulated-client access during host-directed image
+3. [ ] Add an arbiter that prevents emulated-client access during host-directed image
    copy and prevents destructive copy while the medium is exposed.
-4. Add `copy-image-to-sd` and `copy-sd-to-image` with explicit destination
+4. [ ] Add `copy-image-to-sd` and `copy-sd-to-image` with explicit destination
    confirmation, progress, safe-boundary cancellation, flush, and verification.
 
 **Test stage G — physical media safety:**
@@ -486,11 +493,11 @@ primary USB-image backend or introducing external code.
 
 **Implementation steps:**
 
-1. Freeze the protocol version and supported feature matrix.
-2. Document wiring, flashing, native driver setup, CLI usage, safe eject, recovery,
+1. [ ] Freeze the protocol version and supported feature matrix.
+2. [ ] Document wiring, flashing, native driver setup, CLI usage, safe eject, recovery,
    limitations, measured timings, and unsupported commands.
-3. Produce reproducible firmware and host binaries from a clean checkout.
-4. Complete the source/provenance/dependency inventory and MIT notice review.
+3. [ ] Produce reproducible firmware and host binaries from a clean checkout.
+4. [ ] Complete the source/provenance/dependency inventory and MIT notice review.
 
 **Test stage H — final acceptance:**
 
