@@ -35,8 +35,10 @@ cmake -S firmware -B build/firmware -DPICO_BOARD=pico2
 cmake --build build/firmware
 ```
 
-The resulting `picosd_firmware.uf2` is a bring-up image. Its `TARGET_TRACE_ON`
-CDC command enables a small diagnostic-pattern SD model and connects the PIO
-capture/transmit path to the client SPI pins. This path is intended for
-logic-analyser validation at conservative clock rates; host-backed storage is
+The resulting `picosd_firmware.uf2` is a bring-up image. Its `TARGET_ON` CDC
+command enables a small diagnostic-pattern SD model and connects the PIO
+capture/transmit path to the client SPI pins without per-byte logging.
+`TARGET_TRACE_ON` enables the same target with verbose USB diagnostics and is
+only suitable for functional tracing, not timing measurements. Use `TARGET_OFF`
+to stop the target and return MISO to its passive state. Host-backed storage is
 not connected yet.

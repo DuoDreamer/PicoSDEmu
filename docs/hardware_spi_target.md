@@ -55,17 +55,17 @@ when enabled, it emits at most sixteen `TRACE_SPI XX` lines per firmware
 main-loop iteration. This diagnostic path must not remain in the timing path
 once MISO responses or DMA queues are enabled.
 
-## Deferred MISO transmit primitive
+## MISO transmit primitive
 
-`firmware/pio/sd_spi_transmit.pio` is an original transmit-only primitive
-prepared for the next stage. It shifts one queued byte onto GPIO5 on falling
+`firmware/pio/sd_spi_transmit.pio` is an original transmit-only primitive. It
+shifts one queued byte onto GPIO5 on falling
 SCK edges so a client can sample it on rising edges. It uses CS as its jump pin,
 changes GPIO5 to a PIO output only while CS is low, and returns it to an input
-when CS is released or it is waiting for the next queued byte. Firmware must
-configure GPIO5 as an input before enabling the state machine. This primitive
-must **not** be enabled until capture timing and high-impedance idle behavior
-have been verified on hardware; the later response controller will add byte
-queue ownership, response timing, and underrun handling.
+when CS is released or it is waiting for the next queued byte. Firmware
+configures GPIO5 as an input before enabling the state machine. The target
+monitor owns the response queue, applies FIFO back pressure, and clears queued
+bytes when CS is released. Its timing and high-impedance behavior still require
+hardware validation before connecting a client.
 
 ## Command-frame handoff
 
@@ -108,10 +108,10 @@ from crossing into the next client transaction.
 
 ## Firmware target monitor
 
-The firmware now links the portable protocol core into the Pico target and
-provides a `TARGET_TRACE_ON` CDC diagnostic mode. In that mode captured MOSI
-bytes are fed through the portable target worker, decoded responses are printed
-as `TRACE_TARGET_TX` records over USB, and the physical MISO pin remains
-input/high-impedance. This is intentionally a visibility tool rather than a
-timing path: transmit bytes are discarded after tracing until the PIO transmit
-state machine and DMA handoff are hardware-validated.
+The firmware now links the portable protocol core into the Pico target. The
+`TARGET_ON` CDC command feeds captured MOSI bytes through the target worker and
+queues decoded responses for the PIO transmitter without per-byte logging.
+`TARGET_TRACE_ON` runs the same path while printing RX, TX, and CS events over
+USB; that diagnostic mode is intentionally not suitable for timing tests.
+`TARGET_OFF` clears both software and PIO response queues so stale bytes cannot
+cross into a later transaction, and MISO remains input/high-impedance.
