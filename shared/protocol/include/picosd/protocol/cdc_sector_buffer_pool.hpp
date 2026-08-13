@@ -25,7 +25,9 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
   public:
     static constexpr std::size_t kInvalidHandle = std::numeric_limits<std::size_t>::max();
 
-    struct alignas(4) Slot {
+    // The metadata contains 64-bit values, so its natural alignment is also
+    // sufficient for the RP2350 DMA engine's 32-bit sector transfers.
+    struct alignas(std::uint64_t) Slot {
         CdcBlockData data{};
         std::uint64_t lba = 0;
         std::uint64_t generation = 0;
