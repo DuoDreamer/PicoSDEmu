@@ -92,9 +92,28 @@ int main() {
     assert(!engine.push_byte(picosd::protocol::kSdStartBlockToken).has_value());
     assert(!engine.push_byte(0x99U).has_value());
     engine.chip_select_released();
+    assert(engine.counters().aborted_transactions == 1U);
     const auto post_abort_read = send_command(engine, {0x51U, 0, 0, 4, 0, 0x01U});
     assert(post_abort_read.bytes[0] == 0x00U);
     assert(post_abort_read.bytes[2] != 0x99U);
+
+    // CRC diagnostics are accumulated without logging from the byte path.
+    SdCardModel crc_model(SdCardType::Sdsc, backend);
+    SdSpiCardEngine crc_engine(crc_model);
+    assert(send_command(crc_engine, {0x40U, 0, 0, 0, 0, 0x95U}).bytes[0] == 0x01U);
+    assert(send_command(crc_engine, {0x7bU, 0, 0, 0, 1, 0x01U}).bytes[0] == 0x01U);
+    assert(send_command(crc_engine, {0x40U, 0, 0, 0, 0, 0x97U}).bytes[0] == 0x08U);
+    assert(crc_engine.counters().command_crc_errors == 1U);
+    assert(send_command(crc_engine, {0x40U, 0, 0, 0, 0, 0x95U}).bytes[0] == 0x01U);
+    initialize(crc_engine);
+    assert(send_command(crc_engine, {0x58U, 0, 0, 6, 0, 0x01U}).bytes[0] == 0x00U);
+    assert(!crc_engine.push_byte(picosd::protocol::kSdStartBlockToken).has_value());
+    for (const std::uint8_t byte : payload) assert(!crc_engine.push_byte(byte).has_value());
+    assert(!crc_engine.push_byte(0).has_value());
+    const auto bad_write = crc_engine.push_byte(0);
+    assert(bad_write.has_value());
+    assert(bad_write->bytes[0] == picosd::protocol::kSdDataResponseCrcError);
+    assert(crc_engine.counters().data_crc_errors == 1U);
 
     return 0;
 }

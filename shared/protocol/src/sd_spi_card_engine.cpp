@@ -18,6 +18,9 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
         }
 
         const SdWriteResult write_result = model_.write_block(event->payload, event->crc);
+        if (write_result.data_response == make_data_response(kSdDataResponseCrcError)) {
+            ++counters_.data_crc_errors;
+        }
         output.bytes[0] = write_result.data_response;
         output.size = 1;
         output.busy = write_result.busy;
@@ -31,6 +34,7 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
 
     SdSpiEngineOutput output;
     if (decoded->error != SdCommandError::None) {
+        if (decoded->error == SdCommandError::CrcMismatch) ++counters_.command_crc_errors;
         append_response(output, make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError)));
         return output;
     }
@@ -59,6 +63,9 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::next_multi_read_block() {
 }
 
 void SdSpiCardEngine::chip_select_released() {
+    if (command_framer_.receiving() || data_framer_.receiving()) {
+        ++counters_.aborted_transactions;
+    }
     command_framer_.reset();
     data_framer_.reset();
     model_.abort_pending_write();

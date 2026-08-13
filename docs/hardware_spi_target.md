@@ -104,9 +104,12 @@ count queue overflow and underrun rather than silently losing SPI bytes.
 `SdSpiTargetWorker` applies that queue policy to captured bytes and serialized
 engine outputs. It uses bounded processing, preserves FIFO order, drops a
 response atomically when the transmit queue lacks capacity, and exposes receive
-and transmit overflow counters for firmware diagnostics. On CS release it
-discards both pending receive and transmit bytes, preventing a stale response
-from crossing into the next client transaction.
+and transmit overflow/underrun counters for firmware diagnostics. The card
+engine separately counts command CRC errors, data CRC errors, and CS releases
+that abort a partial command or write-data transaction. These counters are
+updated inline without printing or otherwise changing the SPI timing path. On
+CS release it discards both pending receive and transmit bytes, preventing a
+stale response from crossing into the next client transaction.
 
 ## Firmware target monitor
 

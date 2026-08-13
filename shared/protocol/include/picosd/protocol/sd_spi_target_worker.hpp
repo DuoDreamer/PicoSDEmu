@@ -13,6 +13,7 @@ struct SdSpiTargetWorkerCounters {
     std::size_t transmitted_bytes = 0;
     std::size_t receive_overflows = 0;
     std::size_t transmit_overflows = 0;
+    std::size_t transmit_underruns = 0;
 };
 
 // Bounded queue worker that decouples captured SPI bytes from the portable
@@ -43,7 +44,10 @@ public:
     }
 
     bool dequeue_transmit_byte(std::uint8_t& byte) {
-        if (!transmit_.try_pop(byte)) return false;
+        if (!transmit_.try_pop(byte)) {
+            ++counters_.transmit_underruns;
+            return false;
+        }
         ++counters_.transmitted_bytes;
         // A multi-block read must remain continuous without requiring the
         // hardware adapter to understand card-model state. Refill only after
