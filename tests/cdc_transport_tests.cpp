@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <string>
 
@@ -27,6 +28,9 @@ void test_memory_transport() {
            "closed write rejected");
     expect(transport.open("memory") == CdcTransportError::None && transport.is_open(),
            "opens memory transport");
+    expect(transport.write_line(std::string(kMaximumCdcLineLength + 1, 'X')) ==
+               CdcTransportError::LineTooLong,
+           "enforces the shared line-size limit");
     expect(transport.read_line(line) == CdcTransportError::WouldBlock,
            "empty memory transport would block");
     expect(transport.write_line("HELLO id=1") == CdcTransportError::None &&
@@ -102,16 +106,17 @@ void test_posix_oversized_input() {
     PosixCdcTransport transport;
     expect(transport.open(endpoint) == CdcTransportError::None,
            "opens oversized-input endpoint");
-    const std::string oversized_line(2049, 'X');
-    expect(::write(controller, oversized_line.data(), oversized_line.size()) ==
-               static_cast<ssize_t>(oversized_line.size()),
-           "writes oversized unterminated line");
-
+    const std::string oversized_line(kMaximumCdcLineLength + 1, 'X');
     std::string line;
     CdcTransportError result = CdcTransportError::WouldBlock;
-    for (std::size_t attempt = 0;
-         attempt < 16 && result == CdcTransportError::WouldBlock;
-         ++attempt) {
+    std::size_t offset = 0;
+    while (offset < oversized_line.size() && result == CdcTransportError::WouldBlock) {
+        const auto chunk = std::min<std::size_t>(256, oversized_line.size() - offset);
+        const auto count = ::write(controller, oversized_line.data() + offset, chunk);
+        expect(count == static_cast<ssize_t>(chunk),
+               "writes oversized unterminated line fragment");
+        if (count <= 0) break;
+        offset += static_cast<std::size_t>(count);
         result = transport.read_line(line);
     }
     expect(result == CdcTransportError::LineTooLong,

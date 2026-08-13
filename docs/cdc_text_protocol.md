@@ -135,11 +135,13 @@ Commands whose behavior has not yet been implemented must return an explicit
 
 `READ_BLOCKS` and `WRITE_BLOCKS` use `lba`, `count`, and `encoding` fields.
 Data-bearing responses and writes include `crc32`, expressed as eight uppercase
-hexadecimal digits, calculated over decoded sector bytes. The maximum block
-count will be declared by `GET_INFO`; the first implementation will use a small
-bounded transfer limit.
+hexadecimal digits, calculated over all decoded sector bytes in the transfer.
+`GET_INFO` declares `max_blocks=16`; counts from 1 through that limit are
+accepted when the complete LBA range fits the image. The CDC line limit is
+16,384 bytes so the largest base64-encoded transfer remains bounded.
 
-The initial host returns `RANGE` when a single-block LBA is outside the image,
+The initial host returns `RANGE` when a requested range is empty, exceeds 16
+blocks, or extends outside the image,
 `READ_ONLY` when writes are disabled, `BAD_DATA` or `BAD_CRC` before modifying
 invalid write input, and `NO_MEDIA` for commands issued after `EJECT`. `FLUSH`
 commits buffered image data before returning `OK`; `EJECT` flushes first and
