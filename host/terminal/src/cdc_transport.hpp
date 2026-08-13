@@ -7,6 +7,10 @@
 
 namespace picosd::host {
 
+// Large enough for the protocol's maximum 16-sector BASE64 transfer plus
+// command metadata, while still placing a firm bound on retained input.
+inline constexpr std::size_t kMaximumCdcLineLength = 16384;
+
 enum class CdcTransportError { None, WouldBlock, NotOpen, LineTooLong, InvalidLine };
 
 // Host-facing USB CDC transport boundary. Platform serial implementations will

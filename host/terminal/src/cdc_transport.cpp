@@ -2,9 +2,8 @@
 
 namespace picosd::host {
 namespace {
-constexpr std::size_t kMaximumLineLength = 2048;
 bool valid_line(std::string_view line) {
-    return !line.empty() && line.size() <= kMaximumLineLength &&
+    return !line.empty() && line.size() <= kMaximumCdcLineLength &&
            line.find('\r') == std::string_view::npos && line.find('\n') == std::string_view::npos;
 }
 }  // namespace
@@ -18,7 +17,7 @@ void MemoryCdcTransport::close() { open_ = false; }
 bool MemoryCdcTransport::is_open() const { return open_; }
 CdcTransportError MemoryCdcTransport::write_line(std::string_view line) {
     if (!open_) return CdcTransportError::NotOpen;
-    if (line.size() > kMaximumLineLength) return CdcTransportError::LineTooLong;
+    if (line.size() > kMaximumCdcLineLength) return CdcTransportError::LineTooLong;
     if (!valid_line(line)) return CdcTransportError::InvalidLine;
     written_lines_.emplace_back(line);
     return CdcTransportError::None;

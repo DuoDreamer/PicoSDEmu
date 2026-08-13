@@ -5,7 +5,6 @@
 #include <windows.h>
 
 namespace picosd::host {
-namespace { constexpr std::size_t kMaximumLineLength = 2048; }
 WindowsCdcTransport::~WindowsCdcTransport() { close(); }
 CdcTransportError WindowsCdcTransport::open(std::string_view port) {
     close();
@@ -25,7 +24,7 @@ void WindowsCdcTransport::close() { if (handle_ != nullptr) { CloseHandle(static
 bool WindowsCdcTransport::is_open() const { return handle_ != nullptr; }
 CdcTransportError WindowsCdcTransport::write_line(std::string_view line) {
     if (!is_open()) return CdcTransportError::NotOpen;
-    if (line.empty() || line.size() > kMaximumLineLength || line.find_first_of("\r\n") != std::string_view::npos) return CdcTransportError::InvalidLine;
+    if (line.empty() || line.size() > kMaximumCdcLineLength || line.find_first_of("\r\n") != std::string_view::npos) return CdcTransportError::InvalidLine;
     std::string wire(line); wire.push_back('\n'); DWORD count = 0;
     return WriteFile(static_cast<HANDLE>(handle_), wire.data(), static_cast<DWORD>(wire.size()), &count, nullptr) && count == wire.size() ? CdcTransportError::None : CdcTransportError::NotOpen;
 }
@@ -34,7 +33,7 @@ CdcTransportError WindowsCdcTransport::read_line(std::string& line) {
     auto newline = pending_.find('\n');
     if (newline != std::string::npos) {
         line = pending_.substr(0, newline); pending_.erase(0, newline + 1); if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (line.size() > kMaximumLineLength) return CdcTransportError::LineTooLong;
+        if (line.size() > kMaximumCdcLineLength) return CdcTransportError::LineTooLong;
         return line.empty() ? CdcTransportError::InvalidLine : CdcTransportError::None;
     }
     char bytes[256]; DWORD count = 0;
@@ -51,13 +50,13 @@ CdcTransportError WindowsCdcTransport::read_line(std::string& line) {
     }
     newline = pending_.find('\n');
     if (newline == std::string::npos) {
-        if (pending_.size() <= kMaximumLineLength) return CdcTransportError::WouldBlock;
+        if (pending_.size() <= kMaximumCdcLineLength) return CdcTransportError::WouldBlock;
         pending_.clear();
         discarding_oversized_line_ = true;
         return CdcTransportError::LineTooLong;
     }
     line = pending_.substr(0, newline); pending_.erase(0, newline + 1); if (!line.empty() && line.back() == '\r') line.pop_back();
-    if (line.size() > kMaximumLineLength) return CdcTransportError::LineTooLong;
+    if (line.size() > kMaximumCdcLineLength) return CdcTransportError::LineTooLong;
     return line.empty() ? CdcTransportError::InvalidLine : CdcTransportError::None;
 }
 }  // namespace picosd::host

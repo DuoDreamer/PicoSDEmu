@@ -25,8 +25,10 @@ int main() {
     const auto path = std::filesystem::temp_directory_path() / "picosd-dispatcher.img";
     {
         std::ofstream file{path, std::ios::binary | std::ios::trunc};
-        std::array<char, 512> data{};
+        std::array<char, 1536> data{};
         data[0] = 42;
+        data[512] = 43;
+        data[1024] = 44;
         file.write(data.data(), data.size());
     }
 
@@ -62,9 +64,10 @@ int main() {
     expect(session.dispatch("GET_INFO id=999 session=stale") ==
                "ERR id=999 code=BAD_SESSION",
            "rejects stale session without consuming its request id");
-    expect(session.dispatch("GET_INFO id=6 session=test-session").find("blocks=1") !=
-               std::string::npos,
-           "returns image metadata for active session");
+    const auto info = session.dispatch("GET_INFO id=6 session=test-session");
+    expect(info.find("blocks=3") != std::string::npos &&
+               info.find("max_blocks=16") != std::string::npos,
+           "returns image metadata and bounded transfer limit");
     expect(session.dispatch(
                "READ_BLOCKS id=7 session=test-session lba=0 count=1 encoding=BASE64")
                .find("data=Kg") != std::string::npos,
@@ -83,11 +86,33 @@ int main() {
                "READ_BLOCKS id=9 session=test-session lba=0 count=1 encoding=BASE64")
                .find("AKU") != std::string::npos,
            "reads written block");
-    expect(session.dispatch("EJECT id=10 session=test-session") ==
-               "OK id=10 session=test-session",
+
+    std::array<std::uint8_t, 1024> two_blocks{};
+    two_blocks[0] = 0x31U;
+    two_blocks[512] = 0x32U;
+    const auto multi_encoded =
+        picosd::protocol::encode_base64(two_blocks.data(), two_blocks.size());
+    std::snprintf(crc, sizeof(crc), "%08X",
+                  picosd::protocol::crc32(two_blocks.data(), two_blocks.size()));
+    const auto multi_write = "WRITE_BLOCKS id=10 session=test-session lba=1 count=2 "
+                             "encoding=BASE64 crc32=" + std::string(crc) +
+                             " data=" + multi_encoded;
+    expect(session.dispatch(multi_write) == "OK id=10 session=test-session",
+           "writes a multi-block transfer");
+    const auto multi_read = session.dispatch(
+        "READ_BLOCKS id=11 session=test-session lba=1 count=2 encoding=BASE64");
+    expect(multi_read.find("count=2") != std::string::npos &&
+               multi_read.find("data=" + multi_encoded) != std::string::npos,
+           "reads a multi-block transfer with one payload checksum");
+    expect(session.dispatch(
+               "READ_BLOCKS id=12 session=test-session lba=0 count=17 encoding=BASE64") ==
+               "ERR id=12 code=RANGE",
+           "rejects transfers above the advertised limit");
+    expect(session.dispatch("EJECT id=13 session=test-session") ==
+               "OK id=13 session=test-session",
            "ejects active session");
-    expect(session.dispatch("GET_INFO id=11 session=test-session") ==
-               "ERR id=11 code=NO_MEDIA",
+    expect(session.dispatch("GET_INFO id=14 session=test-session") ==
+               "ERR id=14 code=NO_MEDIA",
            "eject blocks future I/O");
     std::filesystem::remove(path);
     return failures == 0 ? 0 : 1;
