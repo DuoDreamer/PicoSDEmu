@@ -33,7 +33,7 @@ void handle_line() {
     } else if (std::strcmp(line, "TARGET_TRACE_ON") == 0) {
         set_spi_capture_trace_enabled(false);
         set_sd_target_monitor_trace_enabled(true);
-        respond("OK target_trace=on miso=passive");
+        respond("OK target_trace=on miso=active");
     } else if (std::strcmp(line, "TARGET_TRACE_OFF") == 0) {
         set_sd_target_monitor_trace_enabled(false);
         respond("OK target_trace=off");

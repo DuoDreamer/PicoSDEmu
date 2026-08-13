@@ -29,6 +29,7 @@ add_executable(picosd_firmware
     src/main.cpp
     src/sd_target_monitor.cpp
     src/spi_capture.cpp
+    src/spi_transmit.cpp
 )
 
 target_include_directories(picosd_firmware PRIVATE

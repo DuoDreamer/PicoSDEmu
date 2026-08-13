@@ -35,7 +35,8 @@ cmake -S firmware -B build/firmware -DPICO_BOARD=pico2
 cmake --build build/firmware
 ```
 
-The resulting `picosd_firmware.uf2` is only a bring-up image at this stage. It
-initializes USB serial output and prints the firmware and protocol versions; it
-does not emulate an SD card yet.
-
+The resulting `picosd_firmware.uf2` is a bring-up image. Its `TARGET_TRACE_ON`
+CDC command enables a small diagnostic-pattern SD model and connects the PIO
+capture/transmit path to the client SPI pins. This path is intended for
+logic-analyser validation at conservative clock rates; host-backed storage is
+not connected yet.
