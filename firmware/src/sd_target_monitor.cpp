@@ -24,6 +24,7 @@ picosd::protocol::SdCardModel card{picosd::protocol::SdCardType::Sdsc, backend};
 picosd::protocol::SdSpiCardEngine engine{card};
 picosd::protocol::SdSpiTargetWorker<kReceiveQueueBytes, kTransmitQueueBytes> worker{engine};
 bool trace_enabled = false;
+bool target_enabled = false;
 bool chip_select_was_asserted = false;
 
 void drain_transmit_queue() {
@@ -61,14 +62,14 @@ void initialize_sd_target_monitor() {
 }
 
 bool poll_sd_target_monitor() {
-    if (!trace_enabled) return false;
+    if (!target_enabled) return false;
     update_chip_select_state();
 
     for (unsigned int count = 0; count < kMaximumBytesPerPoll; ++count) {
         std::uint8_t byte = 0;
         if (!try_read_spi_capture_byte(byte)) break;
         (void)worker.capture_byte(byte);
-        std::printf("TRACE_TARGET_RX %02X\n", static_cast<unsigned>(byte));
+        if (trace_enabled) std::printf("TRACE_TARGET_RX %02X\n", static_cast<unsigned>(byte));
     }
 
     worker.process(kMaximumBytesPerPoll);
@@ -78,6 +79,10 @@ bool poll_sd_target_monitor() {
 
 void set_sd_target_monitor_trace_enabled(bool enabled) {
     trace_enabled = enabled;
+}
+
+void set_sd_target_monitor_enabled(bool enabled) {
+    target_enabled = enabled;
     if (!enabled) {
         worker.chip_select_released();
         cancel_spi_transmit();

@@ -25,6 +25,7 @@ void handle_line() {
     } else if (std::strncmp(line, "EJECT id=", 9) == 0 || std::strncmp(line, "FLUSH id=", 9) == 0) {
         std::printf("OK id=%s\n", line + 9);
     } else if (std::strcmp(line, "TRACE_ON") == 0) {
+        set_sd_target_monitor_enabled(false);
         set_spi_capture_trace_enabled(true);
         respond("OK trace=on");
     } else if (std::strcmp(line, "TRACE_OFF") == 0) {
@@ -32,11 +33,20 @@ void handle_line() {
         respond("OK trace=off");
     } else if (std::strcmp(line, "TARGET_TRACE_ON") == 0) {
         set_spi_capture_trace_enabled(false);
+        set_sd_target_monitor_enabled(true);
         set_sd_target_monitor_trace_enabled(true);
         respond("OK target_trace=on miso=active");
     } else if (std::strcmp(line, "TARGET_TRACE_OFF") == 0) {
         set_sd_target_monitor_trace_enabled(false);
         respond("OK target_trace=off");
+    } else if (std::strcmp(line, "TARGET_ON") == 0) {
+        set_spi_capture_trace_enabled(false);
+        set_sd_target_monitor_trace_enabled(false);
+        set_sd_target_monitor_enabled(true);
+        respond("OK target=on miso=active");
+    } else if (std::strcmp(line, "TARGET_OFF") == 0) {
+        set_sd_target_monitor_enabled(false);
+        respond("OK target=off miso=passive");
     } else {
         respond("ERR id=0 code=UNSUPPORTED");
     }
