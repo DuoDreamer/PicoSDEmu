@@ -20,6 +20,11 @@ enum class CdcOperationState {
     Failed,
 };
 
+enum class CdcDisconnectPolicy {
+    CancelOperation,
+    RetainOperation,
+};
+
 class CdcOperationCoordinator {
 public:
     CdcOperationCoordinator(std::uint64_t request_timeout, std::size_t maximum_retries,
@@ -35,6 +40,9 @@ public:
     CdcSessionClientRequest issue_retry(std::uint64_t now, CdcSessionClient& client);
     CdcSessionClientRequest resume_after_renegotiation(std::uint64_t now,
                                                        CdcSessionClient& client);
+    CdcSessionClientRequest resume_after_media_available(std::uint64_t now,
+                                                         CdcSessionClient& client);
+    void disconnect(CdcSessionClient& client, CdcDisconnectPolicy policy);
     void cancel(CdcSessionClient& client);
     void reset(CdcSessionClient& client);
 

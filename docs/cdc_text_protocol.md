@@ -108,7 +108,11 @@ same-session retry policy.
 `CdcRetainedOperation` keeps the logical command parameters and block payload so
 a retry can construct an equivalent request with a fresh correlation ID.
 `CdcOperationCoordinator` binds retained operations to deadlines and retry state,
-including timeout backoff, terminal failure, and resume after renegotiation.
+including timeout backoff, terminal failure, and resume after renegotiation. A
+`NO_MEDIA` response keeps the operation retained in `MediaUnavailable` so the
+caller can reissue it once card media is restored, while disconnect handling
+either cancels the operation or parks it in `Renegotiate` for an explicit new
+`HELLO` before replay.
 
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines

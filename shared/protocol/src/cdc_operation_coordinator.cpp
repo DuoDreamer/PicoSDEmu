@@ -111,6 +111,29 @@ CdcSessionClientRequest CdcOperationCoordinator::resume_after_renegotiation(
     return issue(now, client);
 }
 
+CdcSessionClientRequest CdcOperationCoordinator::resume_after_media_available(
+    std::uint64_t now, CdcSessionClient& client) {
+    if (state_ != CdcOperationState::MediaUnavailable || !client.negotiated()) {
+        return {CdcSessionClientError::NotNegotiated, {}};
+    }
+    retry_.record_success();
+    return issue(now, client);
+}
+
+void CdcOperationCoordinator::disconnect(CdcSessionClient& client,
+                                          CdcDisconnectPolicy policy) {
+    deadline_.clear();
+    retry_.record_success();
+    (void)client.cancel_pending_request();
+    client.reset();
+    if (policy == CdcDisconnectPolicy::RetainOperation && operation_.active()) {
+        state_ = CdcOperationState::Renegotiate;
+        return;
+    }
+    operation_.clear();
+    state_ = CdcOperationState::Idle;
+}
+
 void CdcOperationCoordinator::cancel(CdcSessionClient& client) {
     deadline_.clear();
     retry_.record_success();

@@ -62,17 +62,70 @@ int main() {
                    client) == CdcOperationState::Idle,
            "resumes retained operation in replacement session");
 
+    operation.retain_get_info();
+    const auto missing_media = coordinator.start(operation, 210, client);
+    expect(missing_media.line == "GET_INFO id=3 session=replacement" &&
+               coordinator.accept_response("ERR id=3 code=NO_MEDIA", 211, client) ==
+                   CdcOperationState::MediaUnavailable &&
+               coordinator.operation_active(),
+           "retains operation while media is unavailable");
+    const auto media_resumed = coordinator.resume_after_media_available(212, client);
+    expect(media_resumed.line == "GET_INFO id=4 session=replacement" &&
+               coordinator.accept_response(
+                   "OK id=4 session=replacement present=1 type=SDHC blocks=16", 213,
+                   client) == CdcOperationState::Idle &&
+               !coordinator.operation_active(),
+           "resumes retained operation after media becomes available");
+
+    operation.retain_flush();
+    const auto disconnecting = coordinator.start(operation, 220, client);
+    expect(disconnecting.line == "FLUSH id=5 session=replacement",
+           "starts operation before transport disconnect");
+    coordinator.disconnect(client, CdcDisconnectPolicy::RetainOperation);
+    expect(coordinator.state() == CdcOperationState::Renegotiate &&
+               coordinator.operation_active() && !client.negotiated(),
+           "retains in-flight operation across disconnect and requests renegotiation");
+    expect(negotiate(client, "after-disconnect"), "renegotiates after disconnect");
+    const auto disconnect_resumed = coordinator.resume_after_renegotiation(221, client);
+    expect(disconnect_resumed.line == "FLUSH id=2 session=after-disconnect" &&
+               coordinator.accept_response("OK id=2 session=after-disconnect", 222,
+                                           client) == CdcOperationState::Idle,
+           "reissues retained operation after disconnect renegotiation");
+
+    operation.retain_flush();
+    const auto canceling_disconnect = coordinator.start(operation, 230, client);
+    expect(canceling_disconnect.line == "FLUSH id=3 session=after-disconnect",
+           "starts operation before canceling disconnect");
+    coordinator.disconnect(client, CdcDisconnectPolicy::CancelOperation);
+    expect(coordinator.state() == CdcOperationState::Idle &&
+               !coordinator.operation_active() && !client.negotiated(),
+           "canceling disconnect clears retained operation and client session");
+    expect(negotiate(client, "terminal"), "renegotiates terminal session");
+
     CdcOperationCoordinator terminal{10, 1, 1, 1};
     operation.retain_flush();
     const auto terminal_request = terminal.start(operation, 300, client);
-    expect(terminal_request.line == "FLUSH id=3 session=replacement" &&
-               terminal.accept_response("ERR id=3 code=BAD_CRC", 301, client) ==
+    expect(terminal_request.line == "FLUSH id=2 session=terminal" &&
+               terminal.accept_response("ERR id=2 code=BAD_CRC", 301, client) ==
                    CdcOperationState::Failed &&
                !terminal.operation_active(),
            "terminal remote error clears retained operation without retry");
     terminal.cancel(client);
     expect(terminal.state() == CdcOperationState::Idle && client.negotiated(),
            "cancels failed operation without discarding negotiated session");
+
+    CdcOperationCoordinator exhausted{10, 1, 1, 1};
+    operation.retain_flush();
+    const auto exhausted_request = exhausted.start(operation, 400, client);
+    expect(exhausted_request.line == "FLUSH id=3 session=terminal" &&
+               exhausted.expire_if_due(410, client) == CdcOperationState::WaitingRetry,
+           "first timeout is retryable");
+    const auto exhausted_retry = exhausted.issue_retry(411, client);
+    expect(exhausted_retry.line == "FLUSH id=4 session=terminal" &&
+               exhausted.expire_if_due(421, client) == CdcOperationState::Failed &&
+               !exhausted.operation_active(),
+           "retry exhaustion clears retained operation");
+
     terminal.reset(client);
     expect(terminal.state() == CdcOperationState::Idle && !client.negotiated(),
            "reset atomically clears coordinator and client session state");
