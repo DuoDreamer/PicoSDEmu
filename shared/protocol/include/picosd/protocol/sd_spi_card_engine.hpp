@@ -19,6 +19,12 @@ struct SdSpiEngineOutput {
     bool busy = false;
 };
 
+struct SdSpiCardEngineCounters {
+    std::size_t command_crc_errors = 0;
+    std::size_t data_crc_errors = 0;
+    std::size_t aborted_transactions = 0;
+};
+
 // Coordinates byte framers with the portable card model. It is deliberately
 // free of PIO, DMA, GPIO, and USB dependencies so firmware can call it from a
 // bounded byte-queue worker after capture timing is verified.
@@ -29,6 +35,7 @@ public:
     [[nodiscard]] std::optional<SdSpiEngineOutput> push_byte(std::uint8_t byte);
     [[nodiscard]] std::optional<SdSpiEngineOutput> next_multi_read_block();
     void chip_select_released();
+    [[nodiscard]] const SdSpiCardEngineCounters& counters() const { return counters_; }
 
 private:
     void append_response(SdSpiEngineOutput& output, const SdResponse& response);
@@ -40,6 +47,7 @@ private:
     SdCardModel& model_;
     SdSpiCommandFramer command_framer_;
     SdSpiDataFramer data_framer_;
+    SdSpiCardEngineCounters counters_{};
 };
 
 }  // namespace picosd::protocol

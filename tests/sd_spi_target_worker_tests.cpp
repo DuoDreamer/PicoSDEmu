@@ -99,6 +99,9 @@ int main() {
     capture_command(output_worker, {0x48U, 0, 0, 1, 0xaaU, 0x87U});
     assert(output_worker.pending_transmit_bytes() == 0U);
     assert(output_worker.counters().transmit_overflows == 1U);
+    std::uint8_t unavailable = 0;
+    assert(!output_worker.dequeue_transmit_byte(unavailable));
+    assert(output_worker.counters().transmit_underruns == 1U);
 
     return 0;
 }
