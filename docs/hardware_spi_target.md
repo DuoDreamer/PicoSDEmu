@@ -111,6 +111,13 @@ updated inline without printing or otherwise changing the SPI timing path. On
 CS release it discards both pending receive and transmit bytes, preventing a
 stale response from crossing into the next client transaction.
 
+The firmware abandons a transaction if CS remains asserted without a captured
+byte for 250 ms. Cleanup clears the software and PIO response queues, increments
+the timeout counter once, and waits for CS to be released before accepting a
+new transaction. `TARGET_COUNTERS` prints a snapshot of receive/transmit totals,
+queue errors, aborted transactions, CRC errors, and timeouts over CDC; polling
+and printing are never performed from the SPI timing path.
+
 ## Firmware target monitor
 
 The firmware now links the portable protocol core into the Pico target. The

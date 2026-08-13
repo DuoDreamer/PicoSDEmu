@@ -47,6 +47,8 @@ void handle_line() {
     } else if (std::strcmp(line, "TARGET_OFF") == 0) {
         set_sd_target_monitor_enabled(false);
         respond("OK target=off miso=passive");
+    } else if (std::strcmp(line, "TARGET_COUNTERS") == 0) {
+        print_sd_target_monitor_counters();
     } else {
         respond("ERR id=0 code=UNSUPPORTED");
     }
