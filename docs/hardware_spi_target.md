@@ -89,8 +89,10 @@ and timing policy outside the portable protocol core. Its CS-release hook also
 abandons an incomplete write frame so the model can recover for the next client
 transaction. CMD9/CMD10 register payloads are serialized with the normal data
 token and CRC16 format before they enter the transmit queue. For CMD18, the
-queue worker calls `next_multi_read_block()` after sending each data block and
-stops when CMD12 or the backend capacity ends the sequence.
+queue worker automatically requests the next block after the preceding response
+leaves its software transmit queue, and stops when CMD12, CS release, or the
+backend capacity ends the sequence. This keeps multi-read state out of the
+hardware adapter while limiting the queued data to one response block.
 
 ## Bounded queue primitive
 
