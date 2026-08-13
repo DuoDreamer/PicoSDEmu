@@ -45,6 +45,11 @@ public:
     bool dequeue_transmit_byte(std::uint8_t& byte) {
         if (!transmit_.try_pop(byte)) return false;
         ++counters_.transmitted_bytes;
+        // A multi-block read must remain continuous without requiring the
+        // hardware adapter to understand card-model state. Refill only after
+        // the complete preceding response has left the software queue, which
+        // preserves response ordering and bounds storage to one queued block.
+        if (transmit_.empty()) (void)queue_next_multi_read_block();
         return true;
     }
 

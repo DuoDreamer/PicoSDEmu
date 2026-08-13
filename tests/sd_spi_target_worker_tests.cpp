@@ -62,6 +62,19 @@ int main() {
     assert(worker.counters().received_bytes == 30U);
     assert(worker.counters().transmitted_bytes == 1U + 5U + 1U + 1U + 1U + kSdDataBlockWireSize);
 
+    // Draining a CMD18 response automatically queues the following block. The
+    // hardware-facing loop therefore does not need to duplicate model state.
+    capture_command(worker, {0x52U, 0, 0, 0, 0, 0x01U});
+    assert(pop_one(worker) == 0x00U);
+    for (std::size_t index = 0; index < kSdDataBlockWireSize; ++index) {
+        std::uint8_t discarded = 0;
+        assert(worker.dequeue_transmit_byte(discarded));
+    }
+    assert(worker.pending_transmit_bytes() == kSdDataBlockWireSize);
+    assert(pop_one(worker) == kSdStartBlockToken);
+    assert(pop_one(worker) == 37U);
+    worker.chip_select_released();
+
     // A new transaction must not inherit response bytes that were queued for
     // a transaction whose CS line has already been released.
     capture_command(worker, {0x51U, 0, 0, 0, 0, 0x01U});
