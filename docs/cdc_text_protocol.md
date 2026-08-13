@@ -119,6 +119,14 @@ the SD-facing worker. Requests awaiting a response, retry, or renegotiation keep
 the SD client busy. `NO_MEDIA` and terminal failures explicitly release busy so
 the client sees an unavailable medium or I/O failure instead of hanging forever.
 
+Firmware block transfers use a compile-time-sized `CdcSectorBufferPool`. Each
+aligned 512-byte slot records its LBA, media generation, and whether it is being
+read, is ready for the SD worker, or is awaiting write acknowledgement. Slots
+are never reused while an operation owns them. Completion checks both LBA and
+generation, preventing a delayed response from an earlier mount from becoming
+visible after media changes. A write slot retains its payload until the host has
+acknowledged the write, which is the storage boundary required for write-through.
+
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
 from one read. Native pseudo-terminal integration tests exercise fragmented
