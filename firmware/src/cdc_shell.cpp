@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "pico/stdlib.h"
+#include "picosd/cdc_device.hpp"
 #include "picosd/protocol/version.hpp"
 #include "picosd/sd_target_monitor.hpp"
 #include "picosd/spi_capture.hpp"
@@ -14,16 +14,31 @@ constexpr std::size_t kMaximumLineLength = 256;
 char line[kMaximumLineLength]{};
 std::size_t length = 0;
 
-void respond(const char* text) { std::printf("%s\n", text); }
+void respond(const char *text) {
+    char response[kMaximumLineLength]{};
+    const int written = std::snprintf(response, sizeof(response), "%s\n", text);
+    if (written > 0 && static_cast<std::size_t>(written) < sizeof(response)) {
+        write_cdc(response, static_cast<std::size_t>(written));
+    }
+}
+
+template <typename... Arguments> void respond_format(const char *format, Arguments... arguments) {
+    char response[kMaximumLineLength]{};
+    const int written = std::snprintf(response, sizeof(response), format, arguments...);
+    if (written > 0 && static_cast<std::size_t>(written) < sizeof(response)) {
+        write_cdc(response, static_cast<std::size_t>(written));
+    }
+}
 void handle_line() {
     if (std::strncmp(line, "HELLO id=", 9) == 0) {
-        std::printf("OK id=%s version=%u.%u\n", line + 9,
-                    static_cast<unsigned>(picosd::protocol::kVersionMajor),
-                    static_cast<unsigned>(picosd::protocol::kVersionMinor));
+        respond_format("OK id=%s version=%u.%u\n", line + 9,
+                       static_cast<unsigned>(picosd::protocol::kVersionMajor),
+                       static_cast<unsigned>(picosd::protocol::kVersionMinor));
     } else if (std::strncmp(line, "GET_INFO id=", 12) == 0) {
-        std::printf("OK id=%s present=0 type=NONE blocks=0 block_size=512 readonly=1\n", line + 12);
+        respond_format("OK id=%s present=0 type=NONE blocks=0 block_size=512 readonly=1\n",
+                       line + 12);
     } else if (std::strncmp(line, "EJECT id=", 9) == 0 || std::strncmp(line, "FLUSH id=", 9) == 0) {
-        std::printf("OK id=%s\n", line + 9);
+        respond_format("OK id=%s\n", line + 9);
     } else if (std::strcmp(line, "TRACE_ON") == 0) {
         set_sd_target_monitor_enabled(false);
         set_spi_capture_trace_enabled(true);
@@ -53,15 +68,19 @@ void handle_line() {
         respond("ERR id=0 code=UNSUPPORTED");
     }
 }
-}  // namespace
+} // namespace
 
 void poll_cdc_shell() {
-    const int value = getchar_timeout_us(0);
-    if (value == PICO_ERROR_TIMEOUT) return;
-    if (value == '\r') return;
+    std::uint8_t byte = 0;
+    if (!read_cdc_byte(byte))
+        return;
+    const int value = byte;
+    if (value == '\r')
+        return;
     if (value == '\n') {
         line[length] = '\0';
-        if (length != 0) handle_line();
+        if (length != 0)
+            handle_line();
         length = 0;
         return;
     }
@@ -73,4 +92,4 @@ void poll_cdc_shell() {
     line[length++] = static_cast<char>(value);
 }
 
-}  // namespace picosd::firmware
+} // namespace picosd::firmware
