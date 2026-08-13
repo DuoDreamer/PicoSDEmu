@@ -22,6 +22,15 @@ cmake --build build/host
 ./build/host/host/terminal/picosd-host --help
 ```
 
+Use `picosd-host discover` to list likely CDC serial devices. `serve` (or its
+`mount` alias) opens and exclusively owns an image until the process exits;
+`status`, `flush`, and `eject` are available as one-shot device commands:
+
+```sh
+picosd-host --port /dev/ttyACM0 status
+picosd-host --port /dev/ttyACM0 mount card.img --type sdhc --rw
+```
+
 On a multi-configuration Windows generator, add `--config Debug` to the build
 command and run the executable from the corresponding configuration directory.
 

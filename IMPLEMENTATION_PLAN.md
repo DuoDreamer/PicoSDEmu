@@ -382,7 +382,7 @@ mismatch or electrical violation.
    session IDs, handshake/version negotiation, and CRC32 validation.
 3. [x] Implement the Linux host adapter with native APIs and the project-owned
    transport interface.
-4. [ ] Extend the console application with device discovery, `serve`, `mount`,
+4. [x] Extend the console application with device discovery, `serve`, `mount`,
    `eject`, `status`, and `flush` commands.
 5. [x] Implement positional image reads/writes, image-size validation, read-only mode,
    exclusive ownership, capacity reporting, and explicit flush.
