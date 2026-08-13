@@ -39,8 +39,8 @@ client before connecting it.
 
 `firmware/pio/sd_spi_capture.pio` is the first original PIO proof-of-concept
 artifact. It samples MOSI on rising SCK edges while CS is asserted and stops
-capturing when CS deasserts. It does **not** drive MISO, decode bytes, use DMA,
-or emulate an SD response yet. The firmware must configure its IN base for
+capturing when CS deasserts. It does **not** drive MISO, decode bytes, or
+emulate an SD response. The firmware must configure its IN base for
 GPIO4 and its JMP pin for GPIO2 before loading the program.
 
 This limited capture-only stage is intentional: it permits logic-analyzer and
@@ -48,12 +48,12 @@ second-Pico verification of selection, clocking, bit order, and CS-abort
 recovery before any client-visible SD response is enabled.
 
 The firmware initializes this capture state machine at boot with automatic
-eight-bit RX FIFO pushes. It does not yet consume the captured bytes in a
-production command decoder. The capture proof-of-concept trace is disabled by
-default. A development terminal can send `TRACE_ON` or `TRACE_OFF` over USB CDC;
-when enabled, it emits at most sixteen `TRACE_SPI XX` lines per firmware
-main-loop iteration. This diagnostic path must not remain in the timing path
-once MISO responses or DMA queues are enabled.
+eight-bit RX FIFO pushes. A PIO-paced DMA channel drains those pushes into an
+aligned 256-byte circular buffer, which the main-loop target monitor consumes
+without blocking. CS release discards unread bytes and clears any partial PIO
+input shift, preventing an aborted command from crossing a transaction
+boundary. The capture trace remains disabled by default and is only a
+low-speed bring-up aid.
 
 ## MISO transmit primitive
 
@@ -63,8 +63,9 @@ SCK edges so a client can sample it on rising edges. It uses CS as its jump pin,
 changes GPIO5 to a PIO output only while CS is low, and returns it to an input
 when CS is released or it is waiting for the next queued byte. Firmware
 configures GPIO5 as an input before enabling the state machine. The target
-monitor owns the response queue, applies FIFO back pressure, and clears queued
-bytes when CS is released. Its timing and high-impedance behavior still require
+monitor feeds a fixed 1024-byte transmit ring, and a PIO-paced DMA channel
+moves contiguous spans into the TX FIFO. CS release aborts DMA and clears both
+the ring and FIFO. Its timing and high-impedance behavior still require
 hardware validation before connecting a client.
 
 ## Command-frame handoff

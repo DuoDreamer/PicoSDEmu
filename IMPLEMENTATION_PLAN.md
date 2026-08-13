@@ -346,7 +346,7 @@ error paths targeted by the specification, and passes provenance review.
 **Implementation steps:**
 
 1. [x] Choose and document Pico 2 GPIO assignments and electrical requirements.
-2. [ ] Write original RP2350 PIO programs to receive MOSI and transmit MISO while
+2. [x] Write original RP2350 PIO programs to receive MOSI and transmit MISO while
    respecting CS boundaries; add DMA-backed fixed-size queues.
 3. [x] Connect PIO byte events to the Phase 1 command model without dynamic allocation
    or blocking calls in interrupt/timing-critical paths.

@@ -39,6 +39,7 @@ target_include_directories(picosd_firmware PRIVATE
 
 target_link_libraries(picosd_firmware PRIVATE
     pico_stdlib
+    hardware_dma
     hardware_pio
     picosd-protocol-core
 )

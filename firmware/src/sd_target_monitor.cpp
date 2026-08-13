@@ -53,6 +53,7 @@ void update_chip_select_state() {
     }
     if (chip_select_was_asserted && !chip_select_asserted) {
         worker.chip_select_released();
+        discard_spi_capture_bytes();
         cancel_spi_transmit();
         transaction_timed_out = false;
         if (trace_enabled) std::printf("TRACE_TARGET_CS released\n");
@@ -96,6 +97,7 @@ bool poll_sd_target_monitor() {
     if (transaction_timed_out) return true;
     worker.process(kMaximumBytesPerPoll);
     drain_transmit_queue();
+    service_spi_transmit();
     return true;
 }
 
@@ -120,6 +122,7 @@ void set_sd_target_monitor_enabled(bool enabled) {
     target_enabled = enabled;
     if (!enabled) {
         worker.chip_select_released();
+        discard_spi_capture_bytes();
         cancel_spi_transmit();
         chip_select_was_asserted = false;
         transaction_timed_out = false;
