@@ -14,6 +14,7 @@ struct SdSpiTargetWorkerCounters {
     std::size_t receive_overflows = 0;
     std::size_t transmit_overflows = 0;
     std::size_t transmit_underruns = 0;
+    std::size_t timeouts = 0;
 };
 
 // Bounded queue worker that decouples captured SPI bytes from the portable
@@ -66,6 +67,12 @@ public:
         received_.clear();
         transmit_.clear();
         engine_.chip_select_released();
+    }
+
+    // Hardware supplies the deadline; the portable worker owns cleanup and accounting.
+    void transaction_timed_out() {
+        ++counters_.timeouts;
+        chip_select_released();
     }
 
     [[nodiscard]] const SdSpiTargetWorkerCounters& counters() const { return counters_; }

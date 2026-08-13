@@ -6,5 +6,6 @@ void initialize_sd_target_monitor();
 bool poll_sd_target_monitor();
 void set_sd_target_monitor_enabled(bool enabled);
 void set_sd_target_monitor_trace_enabled(bool enabled);
+void print_sd_target_monitor_counters();
 
 }  // namespace picosd::firmware

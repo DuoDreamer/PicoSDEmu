@@ -103,5 +103,11 @@ int main() {
     assert(!output_worker.dequeue_transmit_byte(unavailable));
     assert(output_worker.counters().transmit_underruns == 1U);
 
+    assert(output_worker.capture_byte(0x40U));
+    output_worker.transaction_timed_out();
+    assert(output_worker.pending_receive_bytes() == 0U);
+    assert(output_worker.pending_transmit_bytes() == 0U);
+    assert(output_worker.counters().timeouts == 1U);
+
     return 0;
 }

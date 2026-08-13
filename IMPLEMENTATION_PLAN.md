@@ -352,7 +352,7 @@ error paths targeted by the specification, and passes provenance review.
    or blocking calls in interrupt/timing-critical paths.
 4. [x] Support power-up clocks, `CMD0`, `CMD8`, `CMD55`/`ACMD41`, `CMD58`, register
    reads, `CMD13`, `CMD16`, `CMD17`, and `CMD24` against the RAM backend.
-5. [ ] Add counters for queue overflow, underrun, aborted transaction, CRC error, and
+5. [x] Add counters for queue overflow, underrun, aborted transaction, CRC error, and
    timeout; debugging output must not alter SPI timing.
 
 **Test stage C — electrical and timing tests:**
