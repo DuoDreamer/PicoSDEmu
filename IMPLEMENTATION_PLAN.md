@@ -376,7 +376,7 @@ mismatch or electrical violation.
 
 **Implementation steps:**
 
-1. [ ] Implement original TinyUSB device integration using only the separately
+1. [x] Implement original TinyUSB device integration using only the separately
    installed Pico SDK APIs; do not copy SDK examples into project source.
 2. [x] Implement text-line framing, request IDs, bounded multi-request queues,
    session IDs, handshake/version negotiation, and CRC32 validation.

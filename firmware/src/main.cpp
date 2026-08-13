@@ -1,13 +1,11 @@
-#include <cstdio>
-
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
+#include "picosd/cdc_device.hpp"
 #include "picosd/cdc_shell.hpp"
 #include "picosd/sd_target_monitor.hpp"
 #include "picosd/spi_capture.hpp"
 #include "picosd/spi_transmit.hpp"
-#include "picosd/protocol/version.hpp"
 
 int main() {
     // Before any SPI target PIO is installed, keep client-facing pins passive.
@@ -25,19 +23,13 @@ int main() {
     gpio_set_dir(picosd::board::kClientMisoPin, GPIO_IN);
     gpio_disable_pulls(picosd::board::kClientMisoPin);
 
-    stdio_init_all();
+    picosd::firmware::initialize_cdc_device();
     picosd::firmware::initialize_spi_capture();
     picosd::firmware::initialize_spi_transmit();
     picosd::firmware::initialize_sd_target_monitor();
 
-    sleep_ms(1500);
-    std::printf("Pico SD Emulator firmware 0.1.0\n");
-    std::printf("Board: %s\n", picosd::board::kName);
-    std::printf("Host protocol: %u.%u\n",
-                static_cast<unsigned>(picosd::protocol::kVersionMajor),
-                static_cast<unsigned>(picosd::protocol::kVersionMinor));
-
     while (true) {
+        picosd::firmware::poll_cdc_device();
         picosd::firmware::poll_cdc_shell();
         if (!picosd::firmware::poll_sd_target_monitor()) {
             picosd::firmware::poll_spi_capture_trace();
