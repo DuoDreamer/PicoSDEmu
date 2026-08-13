@@ -6,6 +6,7 @@
 #include "picosd/cdc_shell.hpp"
 #include "picosd/sd_target_monitor.hpp"
 #include "picosd/spi_capture.hpp"
+#include "picosd/spi_transmit.hpp"
 #include "picosd/protocol/version.hpp"
 
 int main() {
@@ -26,6 +27,7 @@ int main() {
 
     stdio_init_all();
     picosd::firmware::initialize_spi_capture();
+    picosd::firmware::initialize_spi_transmit();
     picosd::firmware::initialize_sd_target_monitor();
 
     sleep_ms(1500);
