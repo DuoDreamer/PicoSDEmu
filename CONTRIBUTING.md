@@ -52,3 +52,21 @@ git diff --check
 
 Firmware changes additionally require a Pico SDK configuration and the
 hardware/logic-analyzer checks specified by the current implementation phase.
+
+# Local quality checks
+
+The native build provides project-owned test and source-quality entry points; no
+third-party test framework is downloaded or vendored. Configure a build and run
+the checks with:
+
+```sh
+cmake -S . -B build/native
+cmake --build build/native
+ctest --test-dir build/native --output-on-failure
+cmake --build build/native --target static-analysis
+cmake --build build/native --target format
+```
+
+The `static-analysis` target requires `clang-tidy`, and `format` requires
+`clang-format`. The formatter updates project-owned C++ sources in place; review
+its changes before committing them.

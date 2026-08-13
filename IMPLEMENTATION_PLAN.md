@@ -290,7 +290,7 @@ the current phase.
    framing, errors, timeouts, cache semantics, and media ownership.
 4. [x] Select fixed-width wire types and write byte-level golden vectors by hand from
    the project protocol specification.
-5. [ ] Establish native C++ unit-test and formatting/static-analysis targets without
+5. [x] Establish native C++ unit-test and formatting/static-analysis targets without
    importing a test framework; use a small project-owned test runner.
 6. [x] Design a second-Pico SPI-master exerciser and define reproducible logic-analyser
    measurements for CS, SCK, MOSI, MISO, response delay, and tri-state behavior.
