@@ -5,6 +5,7 @@ add_library(picosd-protocol-core
     src/cdc_retained_operation.cpp
     src/cdc_retry_controller.cpp
     src/cdc_session_client.cpp
+    src/cdc_storage_status.cpp
     src/codec.cpp
     src/crc.cpp
     src/sd_card_state.cpp

@@ -114,6 +114,11 @@ caller can reissue it once card media is restored, while disconnect handling
 either cancels the operation or parks it in `Renegotiate` for an explicit new
 `HELLO` before replay.
 
+`cdc_storage_status()` is the boundary between that transport state machine and
+the SD-facing worker. Requests awaiting a response, retry, or renegotiation keep
+the SD client busy. `NO_MEDIA` and terminal failures explicitly release busy so
+the client sees an unavailable medium or I/O failure instead of hanging forever.
+
 CDC packet boundaries have no protocol meaning. Receivers retain incomplete
 lines across reads and independently drain multiple newline-terminated lines
 from one read. Native pseudo-terminal integration tests exercise fragmented
