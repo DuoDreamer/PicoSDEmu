@@ -16,6 +16,19 @@ enum class CdcBackendTransferType {
     Write
 };
 
+struct CdcBackendStatistics {
+    std::uint64_t read_requests = 0;
+    std::uint64_t write_requests = 0;
+    std::uint64_t completed_reads = 0;
+    std::uint64_t completed_writes = 0;
+    std::uint64_t sectors_delivered = 0;
+    std::uint64_t timeouts = 0;
+    std::uint64_t retries = 0;
+    std::uint64_t protocol_faults = 0;
+    std::uint64_t total_latency = 0;
+    std::uint64_t maximum_latency = 0;
+};
+
 // Owns the fixed sector storage and the single in-flight CDC request used by
 // the firmware backend. Writes are not made visible as complete until the host
 // has returned OK, which enforces the project's write-through policy.
@@ -50,7 +63,8 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             (void)buffers_.release(handle);
             return request;
         }
-        retain_transfer(CdcBackendTransferType::Read, handle, lba, generation);
+        retain_transfer(CdcBackendTransferType::Read, handle, lba, generation, now);
+        ++statistics_.read_requests;
         return request;
     }
 
@@ -71,7 +85,8 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             (void)buffers_.release(handle);
             return request;
         }
-        retain_transfer(CdcBackendTransferType::Write, handle, lba, generation);
+        retain_transfer(CdcBackendTransferType::Write, handle, lba, generation, now);
+        ++statistics_.write_requests;
         return request;
     }
 
@@ -81,8 +96,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             transfer_type_ != CdcBackendTransferType::Read || response.rfind("ERR ", 0) == 0 ||
             (decode_read_block_response(response, decoded) == CdcBlockResponseError::None &&
              decoded.lba == lba_);
-        if (!valid_read)
+        if (!valid_read) {
+            ++statistics_.protocol_faults;
             return coordinator_.state();
+        }
 
         const auto state = coordinator_.accept_response(response, now, client_);
         if (state == CdcOperationState::Idle) {
@@ -91,18 +108,25 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
                     ? buffers_.complete_read(handle_, lba_, generation_, decoded.data)
                     : buffers_.complete_write(handle_, lba_, generation_);
             if (!completed) {
+                ++statistics_.protocol_faults;
                 abandon_transfer();
                 return CdcOperationState::Failed;
             }
+            record_completion(now);
             clear_transfer_tracking();
         } else if (state == CdcOperationState::Failed) {
+            ++statistics_.protocol_faults;
             abandon_transfer();
         }
         return state;
     }
 
     [[nodiscard]] CdcOperationState expire_if_due(std::uint64_t now) {
+        const auto previous = coordinator_.state();
         const auto state = coordinator_.expire_if_due(now, client_);
+        if (previous == CdcOperationState::AwaitingResponse &&
+            state != CdcOperationState::AwaitingResponse)
+            ++statistics_.timeouts;
         if (state == CdcOperationState::Failed)
             abandon_transfer();
         return state;
@@ -113,7 +137,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     }
 
     [[nodiscard]] CdcSessionClientRequest issue_retry(std::uint64_t now) {
-        return coordinator_.issue_retry(now, client_);
+        auto request = coordinator_.issue_retry(now, client_);
+        if (request.error == CdcSessionClientError::None)
+            ++statistics_.retries;
+        return request;
     }
 
     [[nodiscard]] bool copy_ready(std::uint64_t lba, std::uint64_t generation,
@@ -123,7 +150,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         if (slot == nullptr)
             return false;
         output = slot->data;
-        return buffers_.release(handle);
+        if (!buffers_.release(handle))
+            return false;
+        ++statistics_.sectors_delivered;
+        return true;
     }
 
     void disconnect() {
@@ -175,6 +205,12 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     [[nodiscard]] CdcOperationState state() const {
         return coordinator_.state();
     }
+    [[nodiscard]] const CdcBackendStatistics &statistics() const {
+        return statistics_;
+    }
+    void reset_statistics() {
+        statistics_ = {};
+    }
 
   private:
     using BufferPool = CdcSectorBufferPool<Capacity>;
@@ -194,11 +230,23 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     }
 
     void retain_transfer(CdcBackendTransferType type, std::size_t handle, std::uint64_t lba,
-                         std::uint64_t generation) {
+                         std::uint64_t generation, std::uint64_t now) {
         transfer_type_ = type;
         handle_ = handle;
         lba_ = lba;
         generation_ = generation;
+        transfer_started_at_ = now;
+    }
+
+    void record_completion(std::uint64_t now) {
+        if (transfer_type_ == CdcBackendTransferType::Read)
+            ++statistics_.completed_reads;
+        else if (transfer_type_ == CdcBackendTransferType::Write)
+            ++statistics_.completed_writes;
+        const auto latency = now >= transfer_started_at_ ? now - transfer_started_at_ : 0;
+        statistics_.total_latency += latency;
+        if (latency > statistics_.maximum_latency)
+            statistics_.maximum_latency = latency;
     }
 
     void clear_transfer_tracking() {
@@ -222,7 +270,9 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
     std::uint64_t lba_ = 0;
     std::uint64_t generation_ = 0;
     std::uint64_t media_generation_ = 0;
+    std::uint64_t transfer_started_at_ = 0;
     bool has_generation_ = false;
+    CdcBackendStatistics statistics_{};
 };
 
 } // namespace picosd::protocol

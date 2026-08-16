@@ -66,6 +66,15 @@ int main() {
            "host acknowledgement completes write-through operation");
     expect(backend.copy_ready(9, 7, output) && output == source,
            "acknowledged write retains its sector until consumed");
+    const auto &completed_statistics = backend.statistics();
+    expect(completed_statistics.read_requests == 1 && completed_statistics.write_requests == 1 &&
+               completed_statistics.completed_reads == 1 &&
+               completed_statistics.completed_writes == 1 &&
+               completed_statistics.sectors_delivered == 2,
+           "statistics count requested, completed, and delivered sectors");
+    expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
+               completed_statistics.protocol_faults == 1,
+           "statistics record transfer latency and malformed responses");
 
     const auto cached = backend.begin_read(11, 7, 22);
     expect(cached.error == picosd::protocol::CdcSessionClientError::None,
@@ -89,6 +98,31 @@ int main() {
 
     backend.invalidate();
     expect(!backend.has_media_generation(), "full invalidation forgets media identity");
+
+    backend.reset_statistics();
+    expect(backend.statistics().read_requests == 0 && backend.statistics().timeouts == 0,
+           "statistics can be reset without changing backend state");
+    negotiate(backend);
+    const auto timed_out = backend.begin_read(3, 9, 100);
+    expect(timed_out.error == picosd::protocol::CdcSessionClientError::None,
+           "read starts for timeout accounting");
+    expect(backend.expire_if_due(200) == CdcOperationState::Failed &&
+               backend.statistics().timeouts == 1 && !backend.transfer_active(),
+           "terminal request timeout is counted and releases its transfer");
+
+    Backend retrying{100, 1, 5, 5};
+    negotiate(retrying);
+    expect(retrying.begin_read(4, 1, 0).error ==
+               picosd::protocol::CdcSessionClientError::None,
+           "retry statistics operation starts");
+    expect(retrying.expire_if_due(100) == CdcOperationState::WaitingRetry &&
+               retrying.statistics().timeouts == 1,
+           "retryable timeout is counted");
+    expect(retrying.poll(105) == CdcOperationState::RetryReady &&
+               retrying.issue_retry(105).error ==
+                   picosd::protocol::CdcSessionClientError::None &&
+               retrying.statistics().retries == 1,
+           "issued retry is counted");
 
     std::cout << "cdc write-through backend tests passed\n";
     return 0;
