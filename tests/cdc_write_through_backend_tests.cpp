@@ -74,8 +74,10 @@ int main() {
                completed_statistics.sectors_delivered == 2,
            "statistics count requested, completed, and delivered sectors");
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
+               completed_statistics.total_write_busy_duration == 1 &&
+               completed_statistics.maximum_write_busy_duration == 1 &&
                completed_statistics.protocol_faults == 1,
-           "statistics record transfer latency and malformed responses");
+           "statistics record transfer latency, write busy duration, and malformed responses");
     expect(completed_statistics.completed_transfers() == 2 &&
                completed_statistics.average_latency() == 1 &&
                completed_statistics.average_throughput() ==
@@ -112,7 +114,9 @@ int main() {
            "statistics can be reset without changing backend state");
     expect(backend.statistics().completed_transfers() == 0 &&
                backend.statistics().average_latency() == 0 &&
-               backend.statistics().average_throughput() == 0,
+               backend.statistics().average_throughput() == 0 &&
+               backend.statistics().total_write_busy_duration == 0 &&
+               backend.statistics().maximum_write_busy_duration == 0,
            "empty statistics have a safe zero average");
     negotiate(backend);
     const auto timed_out = backend.begin_read(3, 9, 100);
@@ -121,6 +125,17 @@ int main() {
     expect(backend.expire_if_due(200) == CdcOperationState::Failed &&
                backend.statistics().timeouts == 1 && !backend.transfer_active(),
            "terminal request timeout is counted and releases its transfer");
+
+    Backend timed_out_writer{100, 0, 1, 1};
+    negotiate(timed_out_writer);
+    const auto timed_out_write = timed_out_writer.begin_write(3, 9, source, 300);
+    expect(timed_out_write.error == picosd::protocol::CdcSessionClientError::None,
+           "write starts for busy-duration timeout accounting");
+    expect(timed_out_writer.expire_if_due(400) == CdcOperationState::Failed &&
+               timed_out_writer.statistics().timeouts == 1 &&
+               timed_out_writer.statistics().total_write_busy_duration == 100 &&
+               timed_out_writer.statistics().maximum_write_busy_duration == 100,
+           "failed write records how long the client would remain busy");
 
     Backend retrying{100, 1, 5, 5};
     negotiate(retrying);
@@ -141,8 +156,9 @@ int main() {
     const auto slow_read = slow.begin_read(6, 1, 0);
     expect(slow_read.error == picosd::protocol::CdcSessionClientError::None &&
                slow.accept_response(read_response(2, 6, source), 150) == CdcOperationState::Idle &&
-               slow.statistics().latency_buckets.back() == 1,
-           "latencies above every bound use the overflow bucket");
+               slow.statistics().latency_buckets.back() == 1 &&
+               slow.statistics().total_write_busy_duration == 0,
+           "latencies above every bound use the overflow bucket without counting read busy time");
 
     std::cout << "cdc write-through backend tests passed\n";
     return 0;
