@@ -32,6 +32,8 @@ struct CdcBackendStatistics {
     std::uint64_t protocol_faults = 0;
     std::uint64_t total_latency = 0;
     std::uint64_t maximum_latency = 0;
+    std::uint64_t total_write_busy_duration = 0;
+    std::uint64_t maximum_write_busy_duration = 0;
     // Each entry counts completions at or below the corresponding upper bound.
     // The final entry counts completions above every configured bound.
     std::array<std::uint64_t, kLatencyBucketUpperBounds.size() + 1> latency_buckets{};
@@ -140,6 +142,7 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             clear_transfer_tracking();
         } else if (state == CdcOperationState::Failed) {
             ++statistics_.protocol_faults;
+            record_write_busy_duration(now);
             abandon_transfer();
         }
         return state;
@@ -151,8 +154,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         if (previous == CdcOperationState::AwaitingResponse &&
             state != CdcOperationState::AwaitingResponse)
             ++statistics_.timeouts;
-        if (state == CdcOperationState::Failed)
+        if (state == CdcOperationState::Failed) {
+            record_write_busy_duration(now);
             abandon_transfer();
+        }
         return state;
     }
 
@@ -269,6 +274,7 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             ++statistics_.completed_writes;
         statistics_.completed_bytes += CdcBlockData{}.size();
         const auto latency = now >= transfer_started_at_ ? now - transfer_started_at_ : 0;
+        record_write_busy_duration(now);
         statistics_.total_latency += latency;
         if (latency > statistics_.maximum_latency)
             statistics_.maximum_latency = latency;
@@ -277,6 +283,15 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
                latency > CdcBackendStatistics::kLatencyBucketUpperBounds[bucket])
             ++bucket;
         ++statistics_.latency_buckets[bucket];
+    }
+
+    void record_write_busy_duration(std::uint64_t now) {
+        if (transfer_type_ != CdcBackendTransferType::Write)
+            return;
+        const auto duration = now >= transfer_started_at_ ? now - transfer_started_at_ : 0;
+        statistics_.total_write_busy_duration += duration;
+        if (duration > statistics_.maximum_write_busy_duration)
+            statistics_.maximum_write_busy_duration = duration;
     }
 
     void clear_transfer_tracking() {
