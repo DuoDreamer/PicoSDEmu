@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -17,6 +18,9 @@ enum class CdcBackendTransferType {
 };
 
 struct CdcBackendStatistics {
+    static constexpr std::array<std::uint64_t, 6> kLatencyBucketUpperBounds = {1,  2,  5,
+                                                                               10, 50, 100};
+
     std::uint64_t read_requests = 0;
     std::uint64_t write_requests = 0;
     std::uint64_t completed_reads = 0;
@@ -27,6 +31,18 @@ struct CdcBackendStatistics {
     std::uint64_t protocol_faults = 0;
     std::uint64_t total_latency = 0;
     std::uint64_t maximum_latency = 0;
+    // Each entry counts completions at or below the corresponding upper bound.
+    // The final entry counts completions above every configured bound.
+    std::array<std::uint64_t, kLatencyBucketUpperBounds.size() + 1> latency_buckets{};
+
+    [[nodiscard]] std::uint64_t completed_transfers() const {
+        return completed_reads + completed_writes;
+    }
+
+    [[nodiscard]] std::uint64_t average_latency() const {
+        const auto completed = completed_transfers();
+        return completed == 0 ? 0 : total_latency / completed;
+    }
 };
 
 // Owns the fixed sector storage and the single in-flight CDC request used by
@@ -247,6 +263,11 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         statistics_.total_latency += latency;
         if (latency > statistics_.maximum_latency)
             statistics_.maximum_latency = latency;
+        std::size_t bucket = 0;
+        while (bucket < CdcBackendStatistics::kLatencyBucketUpperBounds.size() &&
+               latency > CdcBackendStatistics::kLatencyBucketUpperBounds[bucket])
+            ++bucket;
+        ++statistics_.latency_buckets[bucket];
     }
 
     void clear_transfer_tracking() {
