@@ -25,6 +25,7 @@ struct CdcBackendStatistics {
     std::uint64_t write_requests = 0;
     std::uint64_t completed_reads = 0;
     std::uint64_t completed_writes = 0;
+    std::uint64_t completed_bytes = 0;
     std::uint64_t sectors_delivered = 0;
     std::uint64_t timeouts = 0;
     std::uint64_t retries = 0;
@@ -42,6 +43,13 @@ struct CdcBackendStatistics {
     [[nodiscard]] std::uint64_t average_latency() const {
         const auto completed = completed_transfers();
         return completed == 0 ? 0 : total_latency / completed;
+    }
+
+    // Time values use the caller-provided clock units, so this result is bytes
+    // per clock tick. Callers can scale it to bytes per second when the clock
+    // frequency is known without requiring floating point in firmware.
+    [[nodiscard]] std::uint64_t average_throughput() const {
+        return total_latency == 0 ? 0 : completed_bytes / total_latency;
     }
 };
 
@@ -259,6 +267,7 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             ++statistics_.completed_reads;
         else if (transfer_type_ == CdcBackendTransferType::Write)
             ++statistics_.completed_writes;
+        statistics_.completed_bytes += CdcBlockData{}.size();
         const auto latency = now >= transfer_started_at_ ? now - transfer_started_at_ : 0;
         statistics_.total_latency += latency;
         if (latency > statistics_.maximum_latency)

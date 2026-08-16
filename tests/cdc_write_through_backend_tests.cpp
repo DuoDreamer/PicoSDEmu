@@ -70,6 +70,7 @@ int main() {
     expect(completed_statistics.read_requests == 1 && completed_statistics.write_requests == 1 &&
                completed_statistics.completed_reads == 1 &&
                completed_statistics.completed_writes == 1 &&
+               completed_statistics.completed_bytes == 2 * source.size() &&
                completed_statistics.sectors_delivered == 2,
            "statistics count requested, completed, and delivered sectors");
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
@@ -77,6 +78,8 @@ int main() {
            "statistics record transfer latency and malformed responses");
     expect(completed_statistics.completed_transfers() == 2 &&
                completed_statistics.average_latency() == 1 &&
+               completed_statistics.average_throughput() ==
+                   (2 * source.size()) / completed_statistics.total_latency &&
                completed_statistics.latency_buckets[0] == 1 &&
                completed_statistics.latency_buckets[1] == 1,
            "statistics summarize completed transfer latency distribution");
@@ -108,7 +111,8 @@ int main() {
     expect(backend.statistics().read_requests == 0 && backend.statistics().timeouts == 0,
            "statistics can be reset without changing backend state");
     expect(backend.statistics().completed_transfers() == 0 &&
-               backend.statistics().average_latency() == 0,
+               backend.statistics().average_latency() == 0 &&
+               backend.statistics().average_throughput() == 0,
            "empty statistics have a safe zero average");
     negotiate(backend);
     const auto timed_out = backend.begin_read(3, 9, 100);
