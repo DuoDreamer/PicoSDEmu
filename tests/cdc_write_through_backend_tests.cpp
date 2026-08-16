@@ -75,6 +75,11 @@ int main() {
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
                completed_statistics.protocol_faults == 1,
            "statistics record transfer latency and malformed responses");
+    expect(completed_statistics.completed_transfers() == 2 &&
+               completed_statistics.average_latency() == 1 &&
+               completed_statistics.latency_buckets[0] == 1 &&
+               completed_statistics.latency_buckets[1] == 1,
+           "statistics summarize completed transfer latency distribution");
 
     const auto cached = backend.begin_read(11, 7, 22);
     expect(cached.error == picosd::protocol::CdcSessionClientError::None,
@@ -102,6 +107,9 @@ int main() {
     backend.reset_statistics();
     expect(backend.statistics().read_requests == 0 && backend.statistics().timeouts == 0,
            "statistics can be reset without changing backend state");
+    expect(backend.statistics().completed_transfers() == 0 &&
+               backend.statistics().average_latency() == 0,
+           "empty statistics have a safe zero average");
     negotiate(backend);
     const auto timed_out = backend.begin_read(3, 9, 100);
     expect(timed_out.error == picosd::protocol::CdcSessionClientError::None,
@@ -123,6 +131,14 @@ int main() {
                    picosd::protocol::CdcSessionClientError::None &&
                retrying.statistics().retries == 1,
            "issued retry is counted");
+
+    Backend slow{200, 0, 1, 1};
+    negotiate(slow);
+    const auto slow_read = slow.begin_read(6, 1, 0);
+    expect(slow_read.error == picosd::protocol::CdcSessionClientError::None &&
+               slow.accept_response(read_response(2, 6, source), 150) == CdcOperationState::Idle &&
+               slow.statistics().latency_buckets.back() == 1,
+           "latencies above every bound use the overflow bucket");
 
     std::cout << "cdc write-through backend tests passed\n";
     return 0;
