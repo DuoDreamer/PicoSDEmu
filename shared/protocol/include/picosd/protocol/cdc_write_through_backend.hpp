@@ -29,6 +29,7 @@ struct CdcBackendStatistics {
     std::uint64_t sectors_delivered = 0;
     std::uint64_t cache_hits = 0;
     std::uint64_t cache_misses = 0;
+    std::uint64_t read_coalesces = 0;
     std::uint64_t prefetch_requests = 0;
     std::uint64_t prefetch_skips = 0;
     std::uint64_t timeouts = 0;
@@ -89,6 +90,13 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             return {CdcSessionClientError::Busy, {}};
         if (!select_generation(generation))
             return {CdcSessionClientError::Busy, {}};
+        // A ready sector already satisfies the foreground operation. Preserve
+        // it in the LRU and let copy_ready() account for its eventual delivery.
+        // An empty successful request tells the caller not to emit a line.
+        if (buffers_.find_ready(lba, generation) != BufferPool::kInvalidHandle) {
+            ++statistics_.read_coalesces;
+            return {};
+        }
         const auto handle = buffers_.reserve_read(lba, generation);
         if (handle == BufferPool::kInvalidHandle)
             return {CdcSessionClientError::Busy, {}};

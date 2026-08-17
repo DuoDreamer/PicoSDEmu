@@ -270,7 +270,7 @@ required test passes, results are recorded, and its license/provenance gate
 passes. A failure returns the work to the implementation step that introduced
 it; tests must not be weakened to make a gate pass.
 
-**Status snapshot (2026-08-13):** Checkboxes below track implementation only. A
+**Status snapshot (2026-08-17):** Checkboxes below track implementation only. A
 checked step means its code or documentation deliverable is present; it does not
 mean the phase test stage or exit gate has passed. The project is currently in
 Phase 2, with its hardware validation and exit gate still outstanding. Later-phase
@@ -412,8 +412,13 @@ bounded and recoverable, and clean eject leaves a valid, byte-correct image.
 **Implementation steps:**
 
 1. [x] Add `CMD18`, `CMD12`, `CMD25`, and `ACMD23` behavior.
-2. [ ] Add sequential read prefetch and safe request coalescing while retaining
+2. [x] Add sequential read prefetch and safe request coalescing while retaining
    write-through as the default.
+   - [x] Retain completed sectors in the fixed buffer pool as an LRU read cache.
+   - [x] Skip speculative reads for sectors already buffered or in flight.
+   - [x] Request the sector following a delivered read without overflowing the LBA.
+   - [x] Coalesce foreground reads satisfied by a ready cached sector without
+     sending a duplicate host request.
 3. [ ] Implement cache invalidation on mount, eject, reconnect, backend change, and
    media-generation change; serialize reads against overlapping writes.
 4. [x] Add statistics for latency distributions, throughput, hit rate, busy duration,

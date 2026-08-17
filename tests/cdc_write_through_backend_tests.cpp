@@ -57,6 +57,13 @@ int main() {
     CdcBlockData output{};
     expect(backend.copy_ready(4, 7, output) && output == source,
            "completed read transfers buffered bytes");
+    const auto coalesced_read = backend.begin_read(4, 7, 13);
+    expect(coalesced_read.error == picosd::protocol::CdcSessionClientError::None &&
+               coalesced_read.line.empty() && !backend.transfer_active() &&
+               backend.available_buffers() == 1 && backend.statistics().read_coalesces == 1,
+           "a foreground cache hit coalesces without another host request");
+    expect(backend.copy_ready(4, 7, output) && output == source,
+           "a coalesced foreground read leaves the cached sector ready");
 
     source[0] = 0xa5;
     const auto write = backend.begin_write(9, 7, source, 20);
@@ -73,10 +80,11 @@ int main() {
                completed_statistics.completed_reads == 1 &&
                completed_statistics.completed_writes == 1 &&
                completed_statistics.completed_bytes == 2 * source.size() &&
-               completed_statistics.sectors_delivered == 3,
+               completed_statistics.sectors_delivered == 4,
            "statistics count requested, completed, and delivered sectors");
-    expect(completed_statistics.cache_hits == 3 && completed_statistics.cache_misses == 1 &&
-               completed_statistics.cache_hit_permille() == 750,
+    expect(completed_statistics.cache_hits == 4 && completed_statistics.cache_misses == 1 &&
+               completed_statistics.cache_hit_permille() == 800 &&
+               completed_statistics.read_coalesces == 1,
            "statistics report successful and unsuccessful sector-buffer lookups");
 
     const auto coalesced_prefetch = backend.begin_prefetch(9, 7, 21);
