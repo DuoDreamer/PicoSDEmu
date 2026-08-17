@@ -78,6 +78,11 @@ int main() {
     expect(completed_statistics.cache_hits == 3 && completed_statistics.cache_misses == 1 &&
                completed_statistics.cache_hit_permille() == 750,
            "statistics report successful and unsuccessful sector-buffer lookups");
+
+    const auto coalesced_prefetch = backend.begin_prefetch(9, 7, 21);
+    expect(coalesced_prefetch.error == picosd::protocol::CdcSessionClientError::None &&
+               coalesced_prefetch.line.empty() && backend.statistics().prefetch_skips == 1,
+           "prefetch coalesces with a sector already retained in the cache");
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
                completed_statistics.total_write_busy_duration == 1 &&
                completed_statistics.maximum_write_busy_duration == 1 &&
@@ -96,6 +101,17 @@ int main() {
            "same media generation remains available");
     expect(backend.accept_response(read_response(4, 11, source), 23) == CdcOperationState::Idle,
            "read for current generation completes");
+    const auto prefetched = backend.begin_sequential_prefetch(11, 7, 24);
+    expect(prefetched.error == picosd::protocol::CdcSessionClientError::None &&
+               prefetched.line.find("lba=12") != std::string::npos &&
+               backend.statistics().prefetch_requests == 1,
+           "sequential prefetch requests the sector after a delivered read");
+    expect(backend.accept_response(read_response(5, 12, source), 25) == CdcOperationState::Idle &&
+               backend.copy_ready(12, 7, output) && output == source,
+           "prefetched data is retained for the next foreground read");
+    expect(backend.begin_sequential_prefetch(UINT64_MAX, 7, 26).error ==
+               picosd::protocol::CdcSessionClientError::InvalidRequest,
+           "sequential prefetch rejects an overflowing LBA");
     backend.media_changed(8);
     expect(backend.has_media_generation() && backend.media_generation() == 8,
            "media change records the new generation");

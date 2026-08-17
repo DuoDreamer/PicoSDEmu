@@ -34,6 +34,8 @@ int main() {
     expect(pool.complete_read(read, 7, 3, read_data), "matching read completes");
     expect(pool.find_ready(7, 3) == read && pool.get(read)->data[0] == 0x42,
            "completed read is discoverable by LBA and generation");
+    expect(pool.contains(7, 3) && pool.contains(8, 3) && !pool.contains(8, 4),
+           "pool detects matching ready and in-flight sectors");
     expect(pool.complete_write(write, 8, 3), "write becomes ready only after acknowledgement");
 
     CdcBlockData cached{};

@@ -29,6 +29,8 @@ struct CdcBackendStatistics {
     std::uint64_t sectors_delivered = 0;
     std::uint64_t cache_hits = 0;
     std::uint64_t cache_misses = 0;
+    std::uint64_t prefetch_requests = 0;
+    std::uint64_t prefetch_skips = 0;
     std::uint64_t timeouts = 0;
     std::uint64_t retries = 0;
     std::uint64_t protocol_faults = 0;
@@ -101,6 +103,35 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         retain_transfer(CdcBackendTransferType::Read, handle, lba, generation, now);
         ++statistics_.read_requests;
         return request;
+    }
+
+    // Starts a speculative single-sector read only when the sector is not
+    // already cached. An empty successful request means that existing buffered
+    // work safely coalesced the prefetch, so callers must not write a line to
+    // the transport. Foreground writes retain priority because this method
+    // reports Busy whenever another transfer is active.
+    [[nodiscard]] CdcSessionClientRequest
+    begin_prefetch(std::uint64_t lba, std::uint64_t generation, std::uint64_t now) {
+        if (!ready_for_transfer())
+            return {CdcSessionClientError::Busy, {}};
+        if (!select_generation(generation))
+            return {CdcSessionClientError::Busy, {}};
+        if (buffers_.contains(lba, generation)) {
+            ++statistics_.prefetch_skips;
+            return {};
+        }
+        auto request = begin_read(lba, generation, now);
+        if (request.error == CdcSessionClientError::None)
+            ++statistics_.prefetch_requests;
+        return request;
+    }
+
+    [[nodiscard]] CdcSessionClientRequest begin_sequential_prefetch(std::uint64_t delivered_lba,
+                                                                    std::uint64_t generation,
+                                                                    std::uint64_t now) {
+        if (delivered_lba == UINT64_MAX)
+            return {CdcSessionClientError::InvalidRequest, {}};
+        return begin_prefetch(delivered_lba + 1, generation, now);
     }
 
     [[nodiscard]] CdcSessionClientRequest begin_write(std::uint64_t lba, std::uint64_t generation,
