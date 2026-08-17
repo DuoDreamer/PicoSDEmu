@@ -77,6 +77,15 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
         return kInvalidHandle;
     }
 
+    [[nodiscard]] bool contains(std::uint64_t lba, std::uint64_t generation) const {
+        for (const auto &slot : slots_) {
+            if (slot.state != CdcSectorBufferState::Free && slot.lba == lba &&
+                slot.generation == generation)
+                return true;
+        }
+        return false;
+    }
+
     [[nodiscard]] bool copy_ready(std::uint64_t lba, std::uint64_t generation,
                                   CdcBlockData &output) {
         const auto handle = find_ready(lba, generation);
