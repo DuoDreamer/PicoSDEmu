@@ -66,15 +66,17 @@ int main() {
            "host acknowledgement completes write-through operation");
     expect(backend.copy_ready(9, 7, output) && output == source,
            "acknowledged write retains its sector until consumed");
+    expect(backend.copy_ready(9, 7, output) && output == source,
+           "a delivered sector remains available for a cache hit");
     const auto &completed_statistics = backend.statistics();
     expect(completed_statistics.read_requests == 1 && completed_statistics.write_requests == 1 &&
                completed_statistics.completed_reads == 1 &&
                completed_statistics.completed_writes == 1 &&
                completed_statistics.completed_bytes == 2 * source.size() &&
-               completed_statistics.sectors_delivered == 2,
+               completed_statistics.sectors_delivered == 3,
            "statistics count requested, completed, and delivered sectors");
-    expect(completed_statistics.cache_hits == 2 && completed_statistics.cache_misses == 1 &&
-               completed_statistics.cache_hit_permille() == 666,
+    expect(completed_statistics.cache_hits == 3 && completed_statistics.cache_misses == 1 &&
+               completed_statistics.cache_hit_permille() == 750,
            "statistics report successful and unsuccessful sector-buffer lookups");
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
                completed_statistics.total_write_busy_duration == 1 &&
@@ -143,15 +145,13 @@ int main() {
 
     Backend retrying{100, 1, 5, 5};
     negotiate(retrying);
-    expect(retrying.begin_read(4, 1, 0).error ==
-               picosd::protocol::CdcSessionClientError::None,
+    expect(retrying.begin_read(4, 1, 0).error == picosd::protocol::CdcSessionClientError::None,
            "retry statistics operation starts");
     expect(retrying.expire_if_due(100) == CdcOperationState::WaitingRetry &&
                retrying.statistics().timeouts == 1,
            "retryable timeout is counted");
     expect(retrying.poll(105) == CdcOperationState::RetryReady &&
-               retrying.issue_retry(105).error ==
-                   picosd::protocol::CdcSessionClientError::None &&
+               retrying.issue_retry(105).error == picosd::protocol::CdcSessionClientError::None &&
                retrying.statistics().retries == 1,
            "issued retry is counted");
 

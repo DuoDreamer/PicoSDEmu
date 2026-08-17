@@ -16,9 +16,9 @@ enum class CdcSectorBufferState {
     Writing,
 };
 
-// Fixed storage used at the firmware/USB boundary. A slot remains owned by an
-// operation until it is explicitly released, so a delayed USB response cannot
-// overwrite a sector that the SD worker is still consuming.
+// Fixed storage used at the firmware/USB boundary. In-flight slots cannot be
+// evicted, so a delayed USB response cannot overwrite another operation. Ready
+// slots form a small LRU cache and remain reusable until invalidated or replaced.
 template <std::size_t Capacity> class CdcSectorBufferPool {
     static_assert(Capacity != 0, "a sector buffer pool must contain at least one slot");
 
@@ -31,6 +31,7 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
         CdcBlockData data{};
         std::uint64_t lba = 0;
         std::uint64_t generation = 0;
+        std::uint64_t last_used = 0;
         CdcSectorBufferState state = CdcSectorBufferState::Free;
     };
 
@@ -74,6 +75,16 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
             }
         }
         return kInvalidHandle;
+    }
+
+    [[nodiscard]] bool copy_ready(std::uint64_t lba, std::uint64_t generation,
+                                  CdcBlockData &output) {
+        const auto handle = find_ready(lba, generation);
+        if (handle == kInvalidHandle)
+            return false;
+        output = slots_[handle].data;
+        slots_[handle].last_used = next_use_++;
+        return true;
     }
 
     [[nodiscard]] Slot *get(std::size_t handle) {
@@ -121,15 +132,25 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
   private:
     [[nodiscard]] std::size_t reserve(std::uint64_t lba, std::uint64_t generation,
                                       CdcSectorBufferState state) {
+        std::size_t candidate = kInvalidHandle;
         for (std::size_t index = 0; index < Capacity; ++index) {
             if (slots_[index].state == CdcSectorBufferState::Free) {
-                slots_[index].lba = lba;
-                slots_[index].generation = generation;
-                slots_[index].state = state;
-                return index;
+                candidate = index;
+                break;
             }
+            if (slots_[index].state == CdcSectorBufferState::Ready &&
+                (candidate == kInvalidHandle ||
+                 slots_[index].last_used < slots_[candidate].last_used))
+                candidate = index;
         }
-        return kInvalidHandle;
+        if (candidate == kInvalidHandle)
+            return kInvalidHandle;
+        slots_[candidate] = {};
+        slots_[candidate].lba = lba;
+        slots_[candidate].generation = generation;
+        slots_[candidate].last_used = next_use_++;
+        slots_[candidate].state = state;
+        return candidate;
     }
 
     [[nodiscard]] Slot *checked(std::size_t handle, CdcSectorBufferState state, std::uint64_t lba,
@@ -142,6 +163,7 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
     }
 
     std::array<Slot, Capacity> slots_{};
+    std::uint64_t next_use_ = 1;
 };
 
 } // namespace picosd::protocol

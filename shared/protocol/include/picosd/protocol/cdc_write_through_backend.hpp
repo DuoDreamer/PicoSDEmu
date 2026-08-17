@@ -183,15 +183,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
 
     [[nodiscard]] bool copy_ready(std::uint64_t lba, std::uint64_t generation,
                                   CdcBlockData &output) {
-        const auto handle = buffers_.find_ready(lba, generation);
-        const auto *slot = buffers_.get(handle);
-        if (slot == nullptr) {
+        if (!buffers_.copy_ready(lba, generation, output)) {
             ++statistics_.cache_misses;
             return false;
         }
-        output = slot->data;
-        if (!buffers_.release(handle))
-            return false;
         ++statistics_.cache_hits;
         ++statistics_.sectors_delivered;
         return true;
