@@ -36,6 +36,17 @@ int main() {
            "completed read is discoverable by LBA and generation");
     expect(pool.complete_write(write, 8, 3), "write becomes ready only after acknowledgement");
 
+    CdcBlockData cached{};
+    expect(pool.copy_ready(7, 3, cached) && cached == read_data,
+           "copying a ready sector retains it in the cache");
+    const auto replacement = pool.reserve_read(9, 3);
+    expect(replacement == write && pool.find_ready(7, 3) == read,
+           "reservation evicts the least recently used ready sector");
+    expect(pool.reserve_read(10, 3) == read,
+           "a later reservation can evict the remaining ready sector");
+    expect(pool.reserve_read(11, 3) == pool.kInvalidHandle,
+           "reservation never evicts an in-flight sector");
+
     pool.release_generation(3);
     expect(pool.available() == 2 && pool.find_ready(7, 3) == pool.kInvalidHandle,
            "media generation invalidation releases every matching slot");
