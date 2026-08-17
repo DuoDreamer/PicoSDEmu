@@ -27,6 +27,8 @@ struct CdcBackendStatistics {
     std::uint64_t completed_writes = 0;
     std::uint64_t completed_bytes = 0;
     std::uint64_t sectors_delivered = 0;
+    std::uint64_t cache_hits = 0;
+    std::uint64_t cache_misses = 0;
     std::uint64_t timeouts = 0;
     std::uint64_t retries = 0;
     std::uint64_t protocol_faults = 0;
@@ -52,6 +54,13 @@ struct CdcBackendStatistics {
     // frequency is known without requiring floating point in firmware.
     [[nodiscard]] std::uint64_t average_throughput() const {
         return total_latency == 0 ? 0 : completed_bytes / total_latency;
+    }
+
+    // Integer permille avoids floating point in firmware while retaining more
+    // useful precision than a whole percentage for small buffer pools.
+    [[nodiscard]] std::uint64_t cache_hit_permille() const {
+        const auto lookups = cache_hits + cache_misses;
+        return lookups == 0 ? 0 : (cache_hits * 1000) / lookups;
     }
 };
 
@@ -176,11 +185,14 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
                                   CdcBlockData &output) {
         const auto handle = buffers_.find_ready(lba, generation);
         const auto *slot = buffers_.get(handle);
-        if (slot == nullptr)
+        if (slot == nullptr) {
+            ++statistics_.cache_misses;
             return false;
+        }
         output = slot->data;
         if (!buffers_.release(handle))
             return false;
+        ++statistics_.cache_hits;
         ++statistics_.sectors_delivered;
         return true;
     }

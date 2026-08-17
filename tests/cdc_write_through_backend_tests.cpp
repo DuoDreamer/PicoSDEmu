@@ -73,6 +73,9 @@ int main() {
                completed_statistics.completed_bytes == 2 * source.size() &&
                completed_statistics.sectors_delivered == 2,
            "statistics count requested, completed, and delivered sectors");
+    expect(completed_statistics.cache_hits == 2 && completed_statistics.cache_misses == 1 &&
+               completed_statistics.cache_hit_permille() == 666,
+           "statistics report successful and unsuccessful sector-buffer lookups");
     expect(completed_statistics.total_latency == 3 && completed_statistics.maximum_latency == 2 &&
                completed_statistics.total_write_busy_duration == 1 &&
                completed_statistics.maximum_write_busy_duration == 1 &&
@@ -115,6 +118,7 @@ int main() {
     expect(backend.statistics().completed_transfers() == 0 &&
                backend.statistics().average_latency() == 0 &&
                backend.statistics().average_throughput() == 0 &&
+               backend.statistics().cache_hit_permille() == 0 &&
                backend.statistics().total_write_busy_duration == 0 &&
                backend.statistics().maximum_write_busy_duration == 0,
            "empty statistics have a safe zero average");

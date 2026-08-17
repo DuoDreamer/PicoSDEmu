@@ -416,7 +416,7 @@ bounded and recoverable, and clean eject leaves a valid, byte-correct image.
    write-through as the default.
 3. [ ] Implement cache invalidation on mount, eject, reconnect, backend change, and
    media-generation change; serialize reads against overlapping writes.
-4. [ ] Add statistics for latency distributions, throughput, hit rate, busy duration,
+4. [x] Add statistics for latency distributions, throughput, hit rate, busy duration,
    timeouts, retries, and protocol faults.
 5. [ ] Optimize only after collecting traces; preserve a correctness-first build mode.
 
