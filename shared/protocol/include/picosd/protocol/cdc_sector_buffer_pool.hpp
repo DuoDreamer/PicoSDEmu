@@ -86,6 +86,16 @@ template <std::size_t Capacity> class CdcSectorBufferPool {
         return false;
     }
 
+    // Remove cached copies before an overlapping write starts. In-flight slots
+    // are deliberately left alone: their owner must serialize or cancel them.
+    void invalidate_ready(std::uint64_t lba, std::uint64_t generation) {
+        for (auto &slot : slots_) {
+            if (slot.state == CdcSectorBufferState::Ready && slot.lba == lba &&
+                slot.generation == generation)
+                slot = {};
+        }
+    }
+
     [[nodiscard]] bool copy_ready(std::uint64_t lba, std::uint64_t generation,
                                   CdcBlockData &output) {
         const auto handle = find_ready(lba, generation);

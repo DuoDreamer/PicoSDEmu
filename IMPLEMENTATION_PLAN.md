@@ -419,7 +419,7 @@ bounded and recoverable, and clean eject leaves a valid, byte-correct image.
    - [x] Request the sector following a delivered read without overflowing the LBA.
    - [x] Coalesce foreground reads satisfied by a ready cached sector without
      sending a duplicate host request.
-3. [ ] Implement cache invalidation on mount, eject, reconnect, backend change, and
+3. [x] Implement cache invalidation on mount, eject, reconnect, backend change, and
    media-generation change; serialize reads against overlapping writes.
 4. [x] Add statistics for latency distributions, throughput, hit rate, busy duration,
    timeouts, retries, and protocol faults.
