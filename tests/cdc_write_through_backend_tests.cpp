@@ -66,14 +66,15 @@ int main() {
            "a coalesced foreground read leaves the cached sector ready");
 
     source[0] = 0xa5;
-    const auto write = backend.begin_write(9, 7, source, 20);
+    const auto write = backend.begin_write(4, 7, source, 20);
     expect(write.error == picosd::protocol::CdcSessionClientError::None, "write request starts");
-    expect(!backend.copy_ready(9, 7, output), "write is not ready before host acknowledgement");
+    expect(!backend.copy_ready(4, 7, output),
+           "an overlapping write hides the stale cached sector before acknowledgement");
     expect(backend.accept_response("OK id=3 session=test", 21) == CdcOperationState::Idle,
            "host acknowledgement completes write-through operation");
-    expect(backend.copy_ready(9, 7, output) && output == source,
+    expect(backend.copy_ready(4, 7, output) && output == source,
            "acknowledged write retains its sector until consumed");
-    expect(backend.copy_ready(9, 7, output) && output == source,
+    expect(backend.copy_ready(4, 7, output) && output == source,
            "a delivered sector remains available for a cache hit");
     const auto &completed_statistics = backend.statistics();
     expect(completed_statistics.read_requests == 1 && completed_statistics.write_requests == 1 &&
@@ -87,7 +88,7 @@ int main() {
                completed_statistics.read_coalesces == 1,
            "statistics report successful and unsuccessful sector-buffer lookups");
 
-    const auto coalesced_prefetch = backend.begin_prefetch(9, 7, 21);
+    const auto coalesced_prefetch = backend.begin_prefetch(4, 7, 21);
     expect(coalesced_prefetch.error == picosd::protocol::CdcSessionClientError::None &&
                coalesced_prefetch.line.empty() && backend.statistics().prefetch_skips == 1,
            "prefetch coalesces with a sector already retained in the cache");

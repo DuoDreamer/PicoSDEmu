@@ -148,6 +148,10 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
             return {CdcSessionClientError::Busy, {}};
         if (!select_generation(generation))
             return {CdcSessionClientError::Busy, {}};
+        // Once a write is accepted for dispatch, an older cached version of
+        // the same sector must no longer satisfy reads while the host write is
+        // pending. The acknowledged write becomes the sole ready copy below.
+        buffers_.invalidate_ready(lba, generation);
         const auto handle = buffers_.reserve_write(lba, generation, data);
         if (handle == BufferPool::kInvalidHandle)
             return {CdcSessionClientError::Busy, {}};
