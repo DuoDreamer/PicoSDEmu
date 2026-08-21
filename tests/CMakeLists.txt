@@ -330,6 +330,22 @@ else()
     target_compile_options(picosd-sd-model-tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 add_test(NAME picosd.protocol.sd_model COMMAND picosd-sd-model-tests)
+add_executable(picosd-cdc-sd-backend-tests
+    cdc_sd_backend_tests.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/../firmware/src/cdc_sd_backend.cpp
+)
+target_include_directories(picosd-cdc-sd-backend-tests PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../firmware/include
+)
+target_link_libraries(picosd-cdc-sd-backend-tests PRIVATE picosd-protocol-core)
+target_compile_features(picosd-cdc-sd-backend-tests PRIVATE cxx_std_17)
+set_target_properties(picosd-cdc-sd-backend-tests PROPERTIES CXX_EXTENSIONS OFF)
+if(MSVC)
+    target_compile_options(picosd-cdc-sd-backend-tests PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(picosd-cdc-sd-backend-tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+add_test(NAME picosd.firmware.cdc_sd_backend COMMAND picosd-cdc-sd-backend-tests)
 add_executable(picosd-codec-tests codec_tests.cpp)
 target_link_libraries(picosd-codec-tests PRIVATE picosd-protocol-core)
 target_compile_features(picosd-codec-tests PRIVATE cxx_std_17)
