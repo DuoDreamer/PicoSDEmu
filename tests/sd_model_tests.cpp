@@ -5,6 +5,21 @@ namespace { int failures = 0; void expect(bool ok, const char* s) { if (!ok) { s
 picosd::protocol::SdCommand cmd(unsigned i, unsigned a = 0) { return {static_cast<std::uint8_t>(i), a, 0}; } }
 int main() {
     using namespace picosd::protocol;
+    class InterfaceBackend final : public BlockBackend {
+    public:
+        std::size_t block_count() const override { return 16; }
+        bool read(std::size_t lba, SdBlock& output) const override {
+            if (lba != 0) return false;
+            output.fill(0x5a);
+            return true;
+        }
+        bool write(std::size_t lba, const SdBlock& input) override {
+            return lba == 0 && input[0] == 0xa5;
+        }
+    } interface_backend;
+    SdCardModel interface_card{SdCardType::Sdsc, interface_backend};
+    expect(interface_card.registers().exposed_blocks == 16,
+           "SD model accepts the generic block-backend interface");
     RamBlockBackend store{16}; store.fill_diagnostic_pattern(); SdCardModel card{SdCardType::Sdsc, store};
     expect(card.execute(cmd(0)).response.bytes[0] == 1U, "CMD0 enters idle");
     expect(card.execute(cmd(13)).response.type == SdResponseType::R2, "CMD13 returns R2 status");

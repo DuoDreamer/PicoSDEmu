@@ -11,6 +11,17 @@ inline constexpr std::size_t kRamBackendMaximumBlocks = 64;
 
 using SdBlock = std::array<std::uint8_t, kSdBlockSize>;
 
+// Storage boundary used by the SD command model. A successful operation is
+// complete before it returns, allowing transports to defer success until a
+// remote write has been acknowledged.
+class BlockBackend {
+public:
+    virtual ~BlockBackend() = default;
+    [[nodiscard]] virtual std::size_t block_count() const = 0;
+    [[nodiscard]] virtual bool read(std::size_t lba, SdBlock& output) const = 0;
+    [[nodiscard]] virtual bool write(std::size_t lba, const SdBlock& input) = 0;
+};
+
 enum class SdCardState {
     PowerUp,
     Idle,
@@ -49,13 +60,13 @@ private:
 // Deterministic, fixed-capacity RAM block store for native SD-model tests and
 // early firmware bring-up. It never dynamically allocates and is intentionally
 // limited to a small number of sectors.
-class RamBlockBackend {
+class RamBlockBackend final : public BlockBackend {
 public:
     explicit RamBlockBackend(std::size_t block_count);
 
-    [[nodiscard]] std::size_t block_count() const;
-    [[nodiscard]] bool read(std::size_t lba, SdBlock& output) const;
-    [[nodiscard]] bool write(std::size_t lba, const SdBlock& input);
+    [[nodiscard]] std::size_t block_count() const override;
+    [[nodiscard]] bool read(std::size_t lba, SdBlock& output) const override;
+    [[nodiscard]] bool write(std::size_t lba, const SdBlock& input) override;
     void fill_diagnostic_pattern();
 
 private:

@@ -22,7 +22,7 @@ struct SdWriteResult {
 
 class SdCardModel {
 public:
-    SdCardModel(SdCardType type, RamBlockBackend& backend);
+    SdCardModel(SdCardType type, BlockBackend& backend);
     [[nodiscard]] SdCardState state() const;
     [[nodiscard]] bool command_crc_enabled() const;
     [[nodiscard]] const SdCardRegisters& registers() const;
@@ -36,7 +36,7 @@ private:
     [[nodiscard]] bool command_lba(std::uint32_t argument, std::size_t& lba) const;
     [[nodiscard]] std::uint8_t r1_status() const;
 
-    RamBlockBackend& backend_;
+    BlockBackend& backend_;
     SdCardRegisters registers_;
     SdCardType type_;
     SdCardStateMachine state_;
