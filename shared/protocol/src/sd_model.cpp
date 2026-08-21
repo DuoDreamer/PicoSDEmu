@@ -3,7 +3,7 @@
 #include "picosd/protocol/crc.hpp"
 
 namespace picosd::protocol {
-SdCardModel::SdCardModel(SdCardType type, RamBlockBackend& backend)
+SdCardModel::SdCardModel(SdCardType type, BlockBackend& backend)
     : backend_(backend), registers_(make_sd_registers(type, static_cast<std::uint32_t>(backend.block_count()))), type_(type) {}
 
 SdCardState SdCardModel::state() const { return state_.state(); }
