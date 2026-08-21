@@ -1,6 +1,7 @@
 #include "hardware/gpio.h"
 #include "pico/stdlib.h"
 #include "picosd/board_config.hpp"
+#include "picosd/cdc_backend_service.hpp"
 #include "picosd/cdc_device.hpp"
 #include "picosd/cdc_shell.hpp"
 #include "picosd/sd_target_monitor.hpp"
@@ -24,6 +25,7 @@ int main() {
     gpio_disable_pulls(picosd::board::kClientMisoPin);
 
     picosd::firmware::initialize_cdc_device();
+    picosd::firmware::initialize_cdc_backend_service();
     picosd::firmware::initialize_spi_capture();
     picosd::firmware::initialize_spi_transmit();
     picosd::firmware::initialize_sd_target_monitor();
@@ -31,6 +33,7 @@ int main() {
     while (true) {
         picosd::firmware::poll_cdc_device();
         picosd::firmware::poll_cdc_shell();
+        picosd::firmware::poll_cdc_backend_service();
         if (!picosd::firmware::poll_sd_target_monitor()) {
             picosd::firmware::poll_spi_capture_trace();
         }

@@ -11,5 +11,6 @@ void initialize_cdc_device();
 void poll_cdc_device();
 bool read_cdc_byte(std::uint8_t &value);
 bool write_cdc(const char *data, std::size_t length);
+bool cdc_connected();
 
 } // namespace picosd::firmware

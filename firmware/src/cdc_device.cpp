@@ -45,6 +45,10 @@ constexpr const char *strings[] = {
 };
 constexpr std::size_t kStringCount = sizeof(strings) / sizeof(strings[0]);
 std::array<std::uint16_t, 32> string_descriptor{};
+constexpr std::size_t kTransmitBufferSize = 1024;
+std::array<char, kTransmitBufferSize> transmit_buffer{};
+std::size_t transmit_length = 0;
+std::size_t transmit_offset = 0;
 } // namespace
 
 extern "C" std::uint8_t const *tud_descriptor_device_cb() {
@@ -80,6 +84,25 @@ void initialize_cdc_device() {
 
 void poll_cdc_device() {
     tud_task();
+    if (!tud_cdc_connected()) {
+        transmit_length = 0;
+        transmit_offset = 0;
+        return;
+    }
+    if (transmit_offset == transmit_length)
+        return;
+    const auto available = static_cast<std::size_t>(tud_cdc_write_available());
+    const auto count = std::min(available, transmit_length - transmit_offset);
+    if (count == 0)
+        return;
+    const auto written = static_cast<std::size_t>(
+        tud_cdc_write(transmit_buffer.data() + transmit_offset, static_cast<std::uint32_t>(count)));
+    transmit_offset += written;
+    tud_cdc_write_flush();
+    if (transmit_offset == transmit_length) {
+        transmit_length = 0;
+        transmit_offset = 0;
+    }
 }
 
 bool read_cdc_byte(std::uint8_t &value) {
@@ -89,12 +112,17 @@ bool read_cdc_byte(std::uint8_t &value) {
 }
 
 bool write_cdc(const char *data, std::size_t length) {
-    if (!tud_cdc_connected() || length > tud_cdc_write_available())
+    if (!tud_cdc_connected() || data == nullptr || length == 0 || length > transmit_buffer.size() ||
+        transmit_length != 0)
         return false;
-    if (tud_cdc_write(data, static_cast<std::uint32_t>(length)) != length)
-        return false;
-    tud_cdc_write_flush();
+    std::memcpy(transmit_buffer.data(), data, length);
+    transmit_length = length;
+    transmit_offset = 0;
     return true;
+}
+
+bool cdc_connected() {
+    return tud_cdc_connected();
 }
 
 } // namespace picosd::firmware

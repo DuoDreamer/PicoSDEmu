@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "picosd/cdc_backend_service.hpp"
 #include "picosd/cdc_device.hpp"
 #include "picosd/protocol/version.hpp"
 #include "picosd/sd_target_monitor.hpp"
@@ -10,7 +11,8 @@
 
 namespace picosd::firmware {
 namespace {
-constexpr std::size_t kMaximumLineLength = 256;
+// A single BASE64 sector response is roughly 800 bytes including fields.
+constexpr std::size_t kMaximumLineLength = 1024;
 char line[kMaximumLineLength]{};
 std::size_t length = 0;
 
@@ -30,7 +32,9 @@ template <typename... Arguments> void respond_format(const char *format, Argumen
     }
 }
 void handle_line() {
-    if (std::strncmp(line, "HELLO id=", 9) == 0) {
+    if (handle_cdc_backend_response(std::string_view(line, length))) {
+        return;
+    } else if (std::strncmp(line, "HELLO id=", 9) == 0) {
         respond_format("OK id=%s version=%u.%u\n", line + 9,
                        static_cast<unsigned>(picosd::protocol::kVersionMajor),
                        static_cast<unsigned>(picosd::protocol::kVersionMinor));
