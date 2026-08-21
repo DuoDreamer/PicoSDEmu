@@ -14,7 +14,10 @@ constexpr std::uint64_t kMaximumRetryBackoffUs = 100'000;
 FirmwareCdcBackend backend{kRequestTimeoutUs, 2, kInitialRetryBackoffUs, kMaximumRetryBackoffUs};
 bool was_connected = false;
 bool handshake_pending = false;
+bool info_pending = false;
+bool info_known = false;
 std::uint64_t handshake_started_at = 0;
+picosd::protocol::CdcMediaInfo media_info{};
 
 bool send_request(const picosd::protocol::CdcSessionClientRequest &request) {
     if (request.error != picosd::protocol::CdcSessionClientError::None || request.line.empty())
@@ -27,6 +30,10 @@ bool send_request(const picosd::protocol::CdcSessionClientRequest &request) {
 FirmwareCdcBackend &cdc_backend() {
     return backend;
 }
+
+bool cdc_media_ready() { return backend.negotiated() && media_info.present; }
+
+const picosd::protocol::CdcMediaInfo &cdc_media_info() { return media_info; }
 
 bool begin_cdc_read(std::uint64_t lba, std::uint64_t generation) {
     const auto request = backend.begin_read(lba, generation, time_us_64());
@@ -59,7 +66,10 @@ bool copy_cdc_ready(std::uint64_t lba, std::uint64_t generation,
 void initialize_cdc_backend_service() {
     was_connected = false;
     handshake_pending = false;
+    info_pending = false;
+    info_known = false;
     handshake_started_at = 0;
+    media_info = {};
 }
 
 void poll_cdc_backend_service() {
@@ -69,7 +79,10 @@ void poll_cdc_backend_service() {
             backend.disconnect();
         was_connected = false;
         handshake_pending = false;
+        info_pending = false;
+        info_known = false;
         handshake_started_at = 0;
+        media_info = {};
         return;
     }
 
@@ -92,12 +105,23 @@ void poll_cdc_backend_service() {
         return;
     }
 
+    if (backend.negotiated() && !info_pending && !backend.transfer_active() && !info_known) {
+        const auto request = backend.begin_get_info();
+        info_pending = send_request(request);
+        handshake_started_at = info_pending ? time_us_64() : 0;
+        if (!info_pending) backend.disconnect();
+        return;
+    }
+
     const auto now = time_us_64();
-    if (handshake_pending) {
+    if (handshake_pending || info_pending) {
         if (now - handshake_started_at >= kRequestTimeoutUs) {
             backend.disconnect();
             handshake_pending = false;
+            info_pending = false;
+            info_known = false;
             handshake_started_at = 0;
+            media_info = {};
         }
         return;
     }
@@ -121,6 +145,17 @@ bool handle_cdc_backend_response(std::string_view line) {
         handshake_started_at = 0;
         if (result != picosd::protocol::CdcSessionClientError::None)
             backend.disconnect();
+        return true;
+    }
+    if (info_pending) {
+        const auto result = backend.accept_get_info(line, media_info);
+        info_pending = false;
+        info_known = result == picosd::protocol::CdcSessionClientError::None;
+        handshake_started_at = 0;
+        if (result != picosd::protocol::CdcSessionClientError::None) {
+            media_info = {};
+            backend.disconnect();
+        }
         return true;
     }
     if (!backend.transfer_active())

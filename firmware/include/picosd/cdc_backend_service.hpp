@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "picosd/protocol/cdc_write_through_backend.hpp"
+#include "picosd/protocol/cdc_media_info.hpp"
 
 namespace picosd::firmware {
 
@@ -23,5 +24,7 @@ bool begin_cdc_write(std::uint64_t lba, std::uint64_t generation,
                      const picosd::protocol::CdcBlockData &data);
 bool copy_cdc_ready(std::uint64_t lba, std::uint64_t generation,
                     picosd::protocol::CdcBlockData &output);
+bool cdc_media_ready();
+const picosd::protocol::CdcMediaInfo &cdc_media_info();
 
 } // namespace picosd::firmware
