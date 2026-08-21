@@ -33,6 +33,8 @@ picosd-host --port /dev/ttyACM0 mount card.img --type sdhc --rw
 
 On a multi-configuration Windows generator, add `--config Debug` to the build
 command and run the executable from the corresponding configuration directory.
+Windows builders and operators must also follow the approved
+[Windows host prerequisites and native API boundary](docs/windows_host_prerequisites.md).
 
 ## Build the Pico 2 firmware
 

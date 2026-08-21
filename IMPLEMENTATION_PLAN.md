@@ -447,7 +447,7 @@ is lost after flush, and the endurance image matches the oracle.
 
 **Implementation steps:**
 
-1. [ ] Document and approve the Windows SDK/driver prerequisites and native USB API.
+1. [x] Document and approve the Windows SDK/driver prerequisites and native USB API.
 2. [x] Implement the Windows USB, exclusive-file-access, positional-I/O, and flush
    adapters without third-party libraries.
 3. [x] Keep commands, messages, exit codes, and configuration compatible with Linux.
