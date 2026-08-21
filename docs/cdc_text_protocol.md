@@ -144,8 +144,11 @@ Commands whose behavior has not yet been implemented must return an explicit
 `READ_BLOCKS` and `WRITE_BLOCKS` use `lba`, `count`, and `encoding` fields.
 Data-bearing responses and writes include `crc32`, expressed as eight uppercase
 hexadecimal digits, calculated over all decoded sector bytes in the transfer.
-`GET_INFO` declares `max_blocks=16`; counts from 1 through that limit are
-accepted when the complete LBA range fits the image. The CDC line limit is
+`GET_INFO` declares `max_blocks=16` and a numeric `generation` identifying the
+mounted medium. Firmware uses the generation as a cache-invalidation boundary;
+it must not expose buffered sectors tagged with a different generation. Counts
+from 1 through the transfer limit are accepted when the complete LBA range fits
+the image. The CDC line limit is
 16,384 bytes so the largest base64-encoded transfer remains bounded.
 
 The initial host returns `RANGE` when a requested range is empty, exceeds 16
@@ -159,7 +162,7 @@ then makes later media operations fail with `NO_MEDIA`.
 
 ```text
 GET_INFO id=2 session=839201
-OK id=2 session=839201 present=1 type=SDSC blocks=131072 block_size=512 readonly=0
+OK id=2 session=839201 present=1 type=SDSC blocks=131072 block_size=512 readonly=0 generation=1
 READ_BLOCKS id=3 session=839201 lba=0 count=1 encoding=BASE64
 OK id=3 session=839201 lba=0 count=1 encoding=BASE64 crc32=00000000 data=AAAA...
 FLUSH id=4 session=839201
