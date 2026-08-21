@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "picosd/protocol/cdc_block_response.hpp"
+#include "picosd/protocol/cdc_media_info.hpp"
 #include "picosd/protocol/cdc_operation_coordinator.hpp"
 #include "picosd/protocol/cdc_sector_buffer_pool.hpp"
 
@@ -82,6 +83,26 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
 
     [[nodiscard]] CdcSessionClientError accept_handshake(std::string_view response) {
         return client_.accept_response(response);
+    }
+
+    [[nodiscard]] CdcSessionClientRequest begin_get_info() {
+        if (!ready_for_transfer()) return {CdcSessionClientError::Busy, {}};
+        return client_.begin_get_info();
+    }
+
+    [[nodiscard]] CdcSessionClientError accept_get_info(std::string_view response,
+                                                        CdcMediaInfo &output) {
+        CdcMediaInfo decoded;
+        if (decode_cdc_media_info(response, decoded) != CdcMediaInfoError::None)
+            return CdcSessionClientError::InvalidResponse;
+        const auto result = client_.accept_response(response);
+        if (result != CdcSessionClientError::None) return result;
+        output = decoded;
+        if (decoded.present)
+            media_changed(decoded.generation);
+        else
+            invalidate_media();
+        return CdcSessionClientError::None;
     }
 
     [[nodiscard]] CdcSessionClientRequest begin_read(std::uint64_t lba, std::uint64_t generation,
@@ -263,6 +284,14 @@ template <std::size_t Capacity> class CdcWriteThroughBackend {
         clear_transfer_tracking();
         media_generation_ = generation;
         has_generation_ = true;
+    }
+
+    // Media removal invalidates cached sectors without tearing down the
+    // negotiated session used to discover a later mount.
+    void invalidate_media() {
+        buffers_.clear();
+        has_generation_ = false;
+        media_generation_ = 0;
     }
 
     [[nodiscard]] bool has_media_generation() const {

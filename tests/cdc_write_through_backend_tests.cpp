@@ -43,16 +43,28 @@ int main() {
            "I/O is rejected before negotiation");
     negotiate(backend);
 
+    picosd::protocol::CdcMediaInfo media;
+    const auto info = backend.begin_get_info();
+    expect(info.error == picosd::protocol::CdcSessionClientError::None &&
+               info.line.find("GET_INFO") == 0,
+           "negotiated backend requests media metadata");
+    expect(backend.accept_get_info(
+               "OK id=2 session=test present=1 readonly=0 block_size=512 blocks=128 generation=6",
+               media) == picosd::protocol::CdcSessionClientError::None &&
+               media.present && media.blocks == 128 && backend.media_generation() == 6,
+           "valid media metadata establishes the cache generation");
+    backend.media_changed(7);
+
     CdcBlockData source{};
     for (std::size_t index = 0; index < source.size(); ++index)
         source[index] = static_cast<std::uint8_t>(index);
     const auto read = backend.begin_read(4, 7, 10);
     expect(read.error == picosd::protocol::CdcSessionClientError::None, "read request starts");
     expect(backend.available_buffers() == 1, "read reserves one fixed buffer");
-    expect(backend.accept_response(read_response(2, 5, source), 11) ==
+    expect(backend.accept_response(read_response(3, 5, source), 11) ==
                CdcOperationState::AwaitingResponse,
            "wrong LBA cannot complete a read");
-    expect(backend.accept_response(read_response(2, 4, source), 12) == CdcOperationState::Idle,
+    expect(backend.accept_response(read_response(3, 4, source), 12) == CdcOperationState::Idle,
            "matching read response completes");
     CdcBlockData output{};
     expect(backend.copy_ready(4, 7, output) && output == source,
@@ -70,7 +82,7 @@ int main() {
     expect(write.error == picosd::protocol::CdcSessionClientError::None, "write request starts");
     expect(!backend.copy_ready(4, 7, output),
            "an overlapping write hides the stale cached sector before acknowledgement");
-    expect(backend.accept_response("OK id=3 session=test", 21) == CdcOperationState::Idle,
+    expect(backend.accept_response("OK id=4 session=test", 21) == CdcOperationState::Idle,
            "host acknowledgement completes write-through operation");
     expect(backend.copy_ready(4, 7, output) && output == source,
            "acknowledged write retains its sector until consumed");
@@ -108,14 +120,14 @@ int main() {
     const auto cached = backend.begin_read(11, 7, 22);
     expect(cached.error == picosd::protocol::CdcSessionClientError::None,
            "same media generation remains available");
-    expect(backend.accept_response(read_response(4, 11, source), 23) == CdcOperationState::Idle,
+    expect(backend.accept_response(read_response(5, 11, source), 23) == CdcOperationState::Idle,
            "read for current generation completes");
     const auto prefetched = backend.begin_sequential_prefetch(11, 7, 24);
     expect(prefetched.error == picosd::protocol::CdcSessionClientError::None &&
                prefetched.line.find("lba=12") != std::string::npos &&
                backend.statistics().prefetch_requests == 1,
            "sequential prefetch requests the sector after a delivered read");
-    expect(backend.accept_response(read_response(5, 12, source), 25) == CdcOperationState::Idle &&
+    expect(backend.accept_response(read_response(6, 12, source), 25) == CdcOperationState::Idle &&
                backend.copy_ready(12, 7, output) && output == source,
            "prefetched data is retained for the next foreground read");
     expect(backend.begin_sequential_prefetch(UINT64_MAX, 7, 26).error ==
