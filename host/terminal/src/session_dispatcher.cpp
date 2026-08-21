@@ -63,7 +63,7 @@ std::string SessionDispatcher::dispatch(std::string_view request) {
     last_request_id_ = request_id;
     const auto ok = "OK id=" + std::string(id) + " session=" + session_id_;
     if (ejected_ && line.command() != "EJECT") return error(id, "NO_MEDIA");
-    if (line.command() == "GET_INFO") return ok + " present=1 type=" + card_type_ + " blocks=" + std::to_string(image_.block_count()) + " block_size=512 max_blocks=" + std::to_string(kMaximumTransferBlocks) + " readonly=" + (writable_ ? "0" : "1");
+    if (line.command() == "GET_INFO") return ok + " present=1 type=" + card_type_ + " blocks=" + std::to_string(image_.block_count()) + " block_size=512 max_blocks=" + std::to_string(kMaximumTransferBlocks) + " readonly=" + (writable_ ? "0" : "1") + " generation=1";
     if (line.command() == "FLUSH") return image_.flush() ? ok : error(id, "IO_ERROR");
     if (line.command() == "EJECT") {
         if (!image_.flush()) return error(id, "IO_ERROR");

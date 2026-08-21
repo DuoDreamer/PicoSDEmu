@@ -66,7 +66,8 @@ int main() {
            "rejects stale session without consuming its request id");
     const auto info = session.dispatch("GET_INFO id=6 session=test-session");
     expect(info.find("blocks=3") != std::string::npos &&
-               info.find("max_blocks=16") != std::string::npos,
+               info.find("max_blocks=16") != std::string::npos &&
+               info.find("generation=1") != std::string::npos,
            "returns image metadata and bounded transfer limit");
     expect(session.dispatch(
                "READ_BLOCKS id=7 session=test-session lba=0 count=1 encoding=BASE64")
