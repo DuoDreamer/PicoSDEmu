@@ -25,6 +25,7 @@ add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../shared/protocol
 )
 
 add_executable(picosd_firmware
+    src/cdc_backend_service.cpp
     src/cdc_device.cpp
     src/cdc_shell.cpp
     src/main.cpp

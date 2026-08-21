@@ -51,5 +51,8 @@ command enables a small diagnostic-pattern SD model and connects the PIO
 capture/transmit path to the client SPI pins without per-byte logging.
 `TARGET_TRACE_ON` enables the same target with verbose USB diagnostics and is
 only suitable for functional tracing, not timing measurements. Use `TARGET_OFF`
-to stop the target and return MISO to its passive state. Host-backed storage is
-not connected yet.
+to stop the target and return MISO to its passive state. On CDC connection the
+firmware now initiates the versioned image-host handshake and services bounded,
+retryable write-through backend requests. The final adapter between that sector
+pool and the SD command model is still under development, so `TARGET_ON`
+continues to expose the diagnostic RAM image.
