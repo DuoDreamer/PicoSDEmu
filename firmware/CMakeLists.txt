@@ -28,6 +28,7 @@ add_executable(picosd_firmware
     src/cdc_backend_service.cpp
     src/cdc_device.cpp
     src/cdc_shell.cpp
+    src/cdc_sd_backend.cpp
     src/main.cpp
     src/sd_target_monitor.cpp
     src/spi_capture.cpp

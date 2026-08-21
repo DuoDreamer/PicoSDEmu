@@ -54,8 +54,9 @@ only suitable for functional tracing, not timing measurements. Use `TARGET_OFF`
 to stop the target and return MISO to its passive state. On CDC connection the
 firmware now initiates the versioned image-host handshake, validates mounted
 media metadata, tracks its cache generation, and services bounded, retryable
-write-through backend requests. The SD command model now consumes a storage
-interface rather than depending on its diagnostic RAM implementation, providing
-the boundary for the final asynchronous CDC adapter. That adapter between the
-sector pool and the SD command model is still under development, so `TARGET_ON`
-continues to expose the diagnostic RAM image.
+write-through backend requests. A non-blocking SD storage adapter now connects
+that sector pool to the SD model's storage interface: cache misses enqueue CDC
+work, and writes become successful only after a matching host acknowledgement
+is retained. `TARGET_ON` continues to expose the diagnostic RAM image until the
+SPI response worker can defer a data token or busy completion across an
+asynchronous cache miss.
