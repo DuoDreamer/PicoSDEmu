@@ -24,11 +24,16 @@ vectors.
 | --- | --- | --- | --- | --- | --- |
 | CMake | Configure native host builds and tests | 3.20 or newer | System installation | External tool; verify locally | Not distributed by this repository |
 | C++17 compiler and standard library | Build host tools and native tests | Toolchain selected by developer | System installation | External toolchain; verify locally | Not distributed by this repository |
+| Microsoft Windows SDK | Build the native Windows host and provide the approved Win32 communications and file APIs | SDK installed with the selected Visual Studio 2022 toolchain | Microsoft Visual Studio Installer | External toolchain; Microsoft license terms apply | Not vendored or redistributed |
+| Microsoft inbox USB serial driver (`usbser.sys`) | Bind the firmware CDC ACM interface to a Windows COM port | Version supplied by the supported Windows installation | Microsoft Windows | Operating-system component; Microsoft license terms apply | Not distributed by this repository |
 | Raspberry Pi Pico SDK | Build Pico 2 firmware | Selected by developer for firmware builds | Separately installed checkout | External dependency; review before adopting a pinned version | Not vendored; firmware build requires `PICO_SDK_PATH` |
 
 No third-party library is currently linked by the native host target or tests.
 The Pico SDK is an external build dependency only; PicoSDEmu does not copy SDK
 examples or source into the project.
+
+The approved Windows API and driver boundary is recorded in
+[`windows_host_prerequisites.md`](windows_host_prerequisites.md).
 
 ## Change-control checklist
 
