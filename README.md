@@ -35,6 +35,17 @@ On a multi-configuration Windows generator, add `--config Debug` to the build
 command and run the executable from the corresponding configuration directory.
 Windows builders and operators must also follow the approved
 [Windows host prerequisites and native API boundary](docs/windows_host_prerequisites.md).
+From a Visual Studio Developer PowerShell prompt, the project-owned helper
+scripts can build, test, install, and package the native console host:
+
+```powershell
+.\scripts\windows\build-host.ps1
+.\scripts\windows\package-host.ps1
+```
+
+The package script creates a ZIP containing the console executable and the
+project documentation and license. It deliberately does not collect DLLs or
+compiler runtimes; use `-SkipBuild` to package an already tested Release build.
 
 ## Build the Pico 2 firmware
 
