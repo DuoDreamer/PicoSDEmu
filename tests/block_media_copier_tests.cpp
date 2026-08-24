@@ -126,4 +126,34 @@ int main() {
     source.fail_read_lba = 1;
     expect(copy_block_media(source, destination, false) == BlockCopyResult::ReadFailed,
            "read failure is reported");
+
+    source.fail_read_lba = static_cast<std::size_t>(-1);
+    ConfigurableBackend physical_storage{3};
+    BlockBackendArbiter physical{physical_storage};
+    expect(copy_to_exclusive_backend(source, physical, true) == BlockCopyResult::Complete &&
+               physical.owner() == BlockBackendArbiter::Owner::None,
+           "copy to physical media owns and releases the backend");
+    expect(physical.expose_to_client(), "physical media can be exposed");
+    expect(copy_to_exclusive_backend(source, physical, false) ==
+               BlockCopyResult::OwnershipUnavailable &&
+               physical.owner() == BlockBackendArbiter::Owner::EmulatedClient,
+           "copy is rejected while physical media is exposed");
+    expect(physical.hide_from_client(), "physical media can be hidden");
+
+    ConfigurableBackend restored_image{3};
+    expect(copy_from_exclusive_backend(physical, restored_image, true) ==
+               BlockCopyResult::Complete &&
+               physical.owner() == BlockBackendArbiter::Owner::None,
+           "copy from physical media owns, verifies, and releases the backend");
+    for (std::size_t lba = 0; lba < 3; ++lba) {
+        SdBlock restored{};
+        expect(restored_image.read(lba, restored) == BlockOperationResult::Complete &&
+                   restored.front() == lba + 1,
+               "restored image matches source");
+    }
+
+    physical_storage.fail_write_lba = 1;
+    expect(copy_to_exclusive_backend(source, physical, false) == BlockCopyResult::WriteFailed &&
+               physical.owner() == BlockBackendArbiter::Owner::None,
+           "failed copy releases physical ownership");
 }

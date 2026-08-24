@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include "picosd/protocol/block_backend_arbiter.hpp"
 #include "picosd/protocol/sd_card_state.hpp"
 
 namespace picosd::protocol {
@@ -9,6 +10,7 @@ namespace picosd::protocol {
 enum class BlockCopyResult {
     Complete,
     Cancelled,
+    OwnershipUnavailable,
     SourceUnavailable,
     DestinationUnavailable,
     DestinationWriteProtected,
@@ -38,5 +40,16 @@ class BlockCopyObserver {
 // must hold exclusive ownership of both backends for the duration of the call.
 [[nodiscard]] BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination,
                                                bool verify, BlockCopyObserver *observer = nullptr);
+
+// Acquires the physical backend's host-copy ownership for the complete operation
+// and releases it on every result path. These entry points are the safe boundary
+// used by the two directional host copy commands: the other backend must already
+// be exclusively owned by the caller (for example, a locked image file).
+[[nodiscard]] BlockCopyResult copy_to_exclusive_backend(
+    BlockBackend &source, BlockBackendArbiter &destination, bool verify,
+    BlockCopyObserver *observer = nullptr);
+[[nodiscard]] BlockCopyResult copy_from_exclusive_backend(
+    BlockBackendArbiter &source, BlockBackend &destination, bool verify,
+    BlockCopyObserver *observer = nullptr);
 
 } // namespace picosd::protocol
