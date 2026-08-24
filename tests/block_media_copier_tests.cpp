@@ -130,6 +130,24 @@ int main() {
                verification_cancellation.progress_.verifying,
            "verification progress exposes a safe cancellation boundary");
 
+    ConfigurableBackend final_verification_cancel_destination{3};
+    class FinalVerificationCancellation final : public BlockCopyObserver {
+      public:
+        bool cancellation_requested() const override {
+            return progress_.verifying && progress_.verified_blocks == progress_.total_blocks;
+        }
+        void progress(BlockCopyProgress value) override {
+            progress_ = value;
+        }
+        BlockCopyProgress progress_{};
+    } final_verification_cancellation;
+    expect(copy_block_media(source, final_verification_cancel_destination, true,
+                            &final_verification_cancellation) == BlockCopyResult::Cancelled &&
+               final_verification_cancellation.progress_.completed_blocks == 3 &&
+               final_verification_cancellation.progress_.verified_blocks == 3 &&
+               final_verification_cancellation.progress_.verifying,
+           "cancellation at the final verified block is honored before success");
+
     ConfigurableBackend small{2};
     expect(copy_block_media(source, small, false) == BlockCopyResult::DestinationTooSmall,
            "undersized destination is rejected before copying");
