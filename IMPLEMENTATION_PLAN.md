@@ -479,7 +479,7 @@ same documented behavior and recovery semantics.
    specifications using the Pico SDK hardware APIs.
 2. [x] Implement it behind `BlockBackend` with card detect, write protect, capacity,
    timeout, flush, and removal handling.
-3. [ ] Add an arbiter that prevents emulated-client access during host-directed image
+3. [x] Add an arbiter that prevents emulated-client access during host-directed image
    copy and prevents destructive copy while the medium is exposed.
 4. [ ] Add `copy-image-to-sd` and `copy-sd-to-image` with explicit destination
    confirmation, progress, safe-boundary cancellation, flush, and verification.
