@@ -475,7 +475,7 @@ same documented behavior and recovery semantics.
 
 **Implementation steps:**
 
-1. [ ] Write an original SPI-master physical-card driver from the applicable public
+1. [x] Write an original SPI-master physical-card driver from the applicable public
    specifications using the Pico SDK hardware APIs.
 2. [ ] Implement it behind `BlockBackend` with card detect, write protect, capacity,
    timeout, flush, and removal handling.

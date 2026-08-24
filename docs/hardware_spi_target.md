@@ -18,6 +18,13 @@ target implementation or adapter PCB is complete.
 | Physical SD CS | GPIO13 | Output | Reserved for the future logical-proxy backend. |
 | Card-detect control | GPIO14 | Output | Reserved for an optional external dry-contact transistor. |
 
+The optional physical-card driver now owns GPIO10--GPIO13 only when its
+`initialize()` method is called. It starts at 400 kHz, performs SD v2 SPI-mode
+initialization, reads SDHC/SDXC capacity from CSD, and then switches to its
+configured transfer clock. The application does not instantiate or select this
+backend yet; backend arbitration, card-detect, and write-protect handling remain
+separate Phase 6 work, so the pins stay passive in the current firmware image.
+
 All client-facing signals must share ground. The initial adapter assumes normal
 3.3 V signaling. RP2350 fault-tolerant input behavior does not make Pico output
 levels 5 V; adapter electrical compatibility must be validated against the
