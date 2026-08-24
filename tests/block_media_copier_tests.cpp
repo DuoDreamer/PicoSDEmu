@@ -104,6 +104,14 @@ int main() {
                untouched.front() == 0 && cancelled_destination.flushes == 0,
            "cancellation does not start the next block or claim a flush");
 
+    ConfigurableBackend final_boundary_destination{3};
+    Observer final_boundary_cancellation{3};
+    expect(copy_block_media(source, final_boundary_destination, false,
+                            &final_boundary_cancellation) == BlockCopyResult::Cancelled &&
+               final_boundary_cancellation.last_.completed_blocks == 3 &&
+               final_boundary_destination.flushes == 0,
+           "cancellation at the final copied block stops before the flush");
+
     ConfigurableBackend verification_cancel_destination{3};
     class VerificationCancellation final : public BlockCopyObserver {
       public:

@@ -85,6 +85,11 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
         report(observer, lba + 1, blocks);
     }
 
+    // The final sector boundary is still a cancellation boundary. Without
+    // this check, an observer that reacts to the completed-copy progress
+    // notification cannot stop before the potentially blocking flush.
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (destination.flush() != BlockOperationResult::Complete)
         return BlockCopyResult::FlushFailed;
     if (!verify)
