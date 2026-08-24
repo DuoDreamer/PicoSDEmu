@@ -11,15 +11,21 @@ inline constexpr std::size_t kRamBackendMaximumBlocks = 64;
 
 using SdBlock = std::array<std::uint8_t, kSdBlockSize>;
 
-// Storage boundary used by the SD command model. A successful operation is
-// complete before it returns, allowing transports to defer success until a
-// remote write has been acknowledged.
+enum class BlockOperationResult {
+    Complete,
+    Pending,
+    Failed,
+};
+
+// Storage boundary used by the SD command model. Pending lets a transport
+// start work without blocking the SPI worker; callers retry the same operation
+// until it completes or fails.
 class BlockBackend {
-public:
+  public:
     virtual ~BlockBackend() = default;
     [[nodiscard]] virtual std::size_t block_count() const = 0;
-    [[nodiscard]] virtual bool read(std::size_t lba, SdBlock& output) const = 0;
-    [[nodiscard]] virtual bool write(std::size_t lba, const SdBlock& input) = 0;
+    [[nodiscard]] virtual BlockOperationResult read(std::size_t lba, SdBlock &output) const = 0;
+    [[nodiscard]] virtual BlockOperationResult write(std::size_t lba, const SdBlock &input) = 0;
 };
 
 enum class SdCardState {
@@ -40,7 +46,7 @@ enum class SdCardStateError {
 // State-only model for the SD SPI card lifecycle. Command handlers will use
 // this model to keep transitions explicit and independently testable.
 class SdCardStateMachine {
-public:
+  public:
     [[nodiscard]] SdCardState state() const;
     SdCardStateError finish_power_up();
     SdCardStateError reset();
@@ -53,7 +59,7 @@ public:
     SdCardStateError finish_receiving_data();
     void fault();
 
-private:
+  private:
     SdCardState state_ = SdCardState::PowerUp;
 };
 
@@ -61,17 +67,17 @@ private:
 // early firmware bring-up. It never dynamically allocates and is intentionally
 // limited to a small number of sectors.
 class RamBlockBackend final : public BlockBackend {
-public:
+  public:
     explicit RamBlockBackend(std::size_t block_count);
 
     [[nodiscard]] std::size_t block_count() const override;
-    [[nodiscard]] bool read(std::size_t lba, SdBlock& output) const override;
-    [[nodiscard]] bool write(std::size_t lba, const SdBlock& input) override;
+    [[nodiscard]] BlockOperationResult read(std::size_t lba, SdBlock &output) const override;
+    [[nodiscard]] BlockOperationResult write(std::size_t lba, const SdBlock &input) override;
     void fill_diagnostic_pattern();
 
-private:
+  private:
     std::array<SdBlock, kRamBackendMaximumBlocks> blocks_{};
     std::size_t block_count_ = 0;
 };
 
-}  // namespace picosd::protocol
+} // namespace picosd::protocol

@@ -58,22 +58,26 @@ int main() {
         return 2;
 
     picosd::protocol::SdBlock block{};
-    if (backend.read(4, block) || reads != 1 || requested_lba != 4 || requested_generation != 7)
+    if (backend.read(4, block) != picosd::protocol::BlockOperationResult::Pending || reads != 1 ||
+        requested_lba != 4 || requested_generation != 7)
         return 3;
     cached_data.fill(0xa5U);
     cached = true;
-    if (!backend.read(4, block) || block != cached_data || reads != 1)
+    if (backend.read(4, block) != picosd::protocol::BlockOperationResult::Complete ||
+        block != cached_data || reads != 1)
         return 4;
 
     block.fill(0x3cU);
     // A matching cached read is not a write acknowledgement.
     cached_data = block;
-    if (backend.write(5, block) || writes != 1 || requested_lba != 5)
+    if (backend.write(5, block) != picosd::protocol::BlockOperationResult::Pending || writes != 1 ||
+        requested_lba != 5)
         return 5;
     cached = true;
-    if (!backend.write(5, block) || writes != 1)
+    if (backend.write(5, block) != picosd::protocol::BlockOperationResult::Complete || writes != 1)
         return 6;
-    if (backend.read(32, block) || backend.write(32, block))
+    if (backend.read(32, block) != picosd::protocol::BlockOperationResult::Failed ||
+        backend.write(32, block) != picosd::protocol::BlockOperationResult::Failed)
         return 7;
 
     std::puts("cdc sd backend tests passed");

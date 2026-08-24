@@ -1,26 +1,42 @@
-#include <iostream>
 #include "picosd/protocol/crc.hpp"
 #include "picosd/protocol/sd_model.hpp"
-namespace { int failures = 0; void expect(bool ok, const char* s) { if (!ok) { std::cerr << "FAIL: " << s << '\n'; ++failures; } }
-picosd::protocol::SdCommand cmd(unsigned i, unsigned a = 0) { return {static_cast<std::uint8_t>(i), a, 0}; } }
+#include <iostream>
+namespace {
+int failures = 0;
+void expect(bool ok, const char *s) {
+    if (!ok) {
+        std::cerr << "FAIL: " << s << '\n';
+        ++failures;
+    }
+}
+picosd::protocol::SdCommand cmd(unsigned i, unsigned a = 0) {
+    return {static_cast<std::uint8_t>(i), a, 0};
+}
+} // namespace
 int main() {
     using namespace picosd::protocol;
     class InterfaceBackend final : public BlockBackend {
-    public:
-        std::size_t block_count() const override { return 16; }
-        bool read(std::size_t lba, SdBlock& output) const override {
-            if (lba != 0) return false;
-            output.fill(0x5a);
-            return true;
+      public:
+        std::size_t block_count() const override {
+            return 16;
         }
-        bool write(std::size_t lba, const SdBlock& input) override {
-            return lba == 0 && input[0] == 0xa5;
+        BlockOperationResult read(std::size_t lba, SdBlock &output) const override {
+            if (lba != 0)
+                return BlockOperationResult::Failed;
+            output.fill(0x5a);
+            return BlockOperationResult::Complete;
+        }
+        BlockOperationResult write(std::size_t lba, const SdBlock &input) override {
+            return lba == 0 && input[0] == 0xa5 ? BlockOperationResult::Complete
+                                                : BlockOperationResult::Failed;
         }
     } interface_backend;
     SdCardModel interface_card{SdCardType::Sdsc, interface_backend};
     expect(interface_card.registers().exposed_blocks == 16,
            "SD model accepts the generic block-backend interface");
-    RamBlockBackend store{16}; store.fill_diagnostic_pattern(); SdCardModel card{SdCardType::Sdsc, store};
+    RamBlockBackend store{16};
+    store.fill_diagnostic_pattern();
+    SdCardModel card{SdCardType::Sdsc, store};
     expect(card.execute(cmd(0)).response.bytes[0] == 1U, "CMD0 enters idle");
     expect(card.execute(cmd(13)).response.type == SdResponseType::R2, "CMD13 returns R2 status");
     expect(!card.command_crc_enabled(), "command CRC starts disabled");
@@ -29,7 +45,8 @@ int main() {
     expect(card.execute(cmd(0)).response.bytes[0] == 1U && !card.command_crc_enabled(),
            "CMD0 clears command CRC mode");
     expect(card.execute(cmd(8, 0x1aaU)).response.type == SdResponseType::R7, "CMD8 returns R7");
-    card.execute(cmd(55)); expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
+    card.execute(cmd(55));
+    expect(card.execute(cmd(41)).response.bytes[0] == 0U, "ACMD41 leaves idle");
     expect(card.execute(cmd(58)).response.type == SdResponseType::R3, "CMD58 returns OCR");
     card.execute(cmd(55));
     expect(card.execute(cmd(23, 4)).response.bytes[0] == 0U, "ACMD23 accepts preerase count");
@@ -40,18 +57,25 @@ int main() {
     expect(csd.has_register_data && csd.register_data == card.registers().csd, "CMD9 returns CSD");
     const auto cid = card.execute(cmd(10));
     expect(cid.has_register_data && cid.register_data == card.registers().cid, "CMD10 returns CID");
-    auto read = card.execute(cmd(17, 512)); expect(read.has_read_block && read.read_block[0] == 37U, "SDSC CMD17 uses byte addressing");
+    auto read = card.execute(cmd(17, 512));
+    expect(read.has_read_block && read.read_block[0] == 37U, "SDSC CMD17 uses byte addressing");
     auto multi_read = card.execute(cmd(18, 0));
-    expect(multi_read.has_read_block && multi_read.read_block[0] == 0U, "CMD18 returns first block");
+    expect(multi_read.has_read_block && multi_read.read_block[0] == 0U,
+           "CMD18 returns first block");
     SdBlock next_multi_read{};
     expect(card.read_next_multi_block(next_multi_read) && next_multi_read[0] == 37U,
            "CMD18 provides the next sequential block");
     expect(card.execute(cmd(12)).response.bytes[0] == 0U, "CMD12 stops transfer cleanly");
     expect(!card.read_next_multi_block(next_multi_read), "CMD12 stops multi-block reads");
-    expect(card.execute(cmd(17, 1)).response.bytes[0] == static_cast<std::uint8_t>(SdR1::AddressError), "unaligned SDSC address rejected");
-    card.execute(cmd(24, 0)); SdBlock block{}; block[4] = 0xa5U;
+    expect(card.execute(cmd(17, 1)).response.bytes[0] ==
+               static_cast<std::uint8_t>(SdR1::AddressError),
+           "unaligned SDSC address rejected");
+    card.execute(cmd(24, 0));
+    SdBlock block{};
+    block[4] = 0xa5U;
     const auto single_write = card.write_block(block, crc16(block.data(), block.size()));
-    expect(single_write.response.bytes[0] == 0U && single_write.data_response == kSdDataResponseAccepted && single_write.busy,
+    expect(single_write.response.bytes[0] == 0U &&
+               single_write.data_response == kSdDataResponseAccepted && single_write.busy,
            "CMD24 data write is accepted and busy");
     expect(card.execute(cmd(17, 0)).read_block[4] == 0xa5U, "written data reads back");
     card.execute(cmd(24, 1024));
@@ -65,11 +89,15 @@ int main() {
     card.execute(cmd(25, 0));
     SdBlock first_multi_write{};
     first_multi_write[0] = 0x11U;
-    expect(card.write_block(first_multi_write, crc16(first_multi_write.data(), first_multi_write.size())).response.bytes[0] == 0U,
+    expect(card.write_block(first_multi_write,
+                            crc16(first_multi_write.data(), first_multi_write.size()))
+                   .response.bytes[0] == 0U,
            "CMD25 accepts first multi-block write");
     SdBlock second_multi_write{};
     second_multi_write[0] = 0x22U;
-    expect(card.write_block(second_multi_write, crc16(second_multi_write.data(), second_multi_write.size())).response.bytes[0] == 0U,
+    expect(card.write_block(second_multi_write,
+                            crc16(second_multi_write.data(), second_multi_write.size()))
+                   .response.bytes[0] == 0U,
            "CMD25 accepts next multi-block write");
     expect(card.finish_multi_write(), "multi-block write stop succeeds");
     expect(card.execute(cmd(17, 0)).read_block[0] == 0x11U, "first multi-block write persists");

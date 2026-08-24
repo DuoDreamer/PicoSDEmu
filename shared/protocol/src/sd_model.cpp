@@ -3,20 +3,32 @@
 #include "picosd/protocol/crc.hpp"
 
 namespace picosd::protocol {
-SdCardModel::SdCardModel(SdCardType type, BlockBackend& backend)
-    : backend_(backend), registers_(make_sd_registers(type, static_cast<std::uint32_t>(backend.block_count()))), type_(type) {}
+SdCardModel::SdCardModel(SdCardType type, BlockBackend &backend)
+    : backend_(backend),
+      registers_(make_sd_registers(type, static_cast<std::uint32_t>(backend.block_count()))),
+      type_(type) {}
 
-SdCardState SdCardModel::state() const { return state_.state(); }
-bool SdCardModel::command_crc_enabled() const { return command_crc_enabled_; }
-const SdCardRegisters& SdCardModel::registers() const { return registers_; }
+SdCardState SdCardModel::state() const {
+    return state_.state();
+}
+bool SdCardModel::command_crc_enabled() const {
+    return command_crc_enabled_;
+}
+const SdCardRegisters &SdCardModel::registers() const {
+    return registers_;
+}
+void SdCardModel::refresh_capacity() {
+    registers_ = make_sd_registers(type_, static_cast<std::uint32_t>(backend_.block_count()));
+}
 
 std::uint8_t SdCardModel::r1_status() const {
     return state() == SdCardState::Idle ? static_cast<std::uint8_t>(SdR1::Idle) : 0U;
 }
 
-bool SdCardModel::command_lba(std::uint32_t argument, std::size_t& lba) const {
+bool SdCardModel::command_lba(std::uint32_t argument, std::size_t &lba) const {
     if (type_ == SdCardType::Sdsc) {
-        if ((argument % kSdBlockSize) != 0U) return false;
+        if ((argument % kSdBlockSize) != 0U)
+            return false;
         lba = argument / kSdBlockSize;
     } else {
         lba = argument;
@@ -24,13 +36,15 @@ bool SdCardModel::command_lba(std::uint32_t argument, std::size_t& lba) const {
     return lba < registers_.exposed_blocks;
 }
 
-SdModelResult SdCardModel::execute(const SdCommand& command) {
+SdModelResult SdCardModel::execute(const SdCommand &command) {
     SdModelResult result;
-    if (command.index != 55U && command.index != 41U && command.index != 23U) app_command_pending_ = false;
+    if (command.index != 55U && command.index != 41U && command.index != 23U)
+        app_command_pending_ = false;
     if (command.index == 0U) {
         state_.enter_idle();
         command_crc_enabled_ = false;
         multi_read_active_ = false;
+        pending_read_active_ = false;
         multi_write_active_ = false;
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::Idle));
         return result;
@@ -45,11 +59,12 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
     }
     if (command.index == 12U && state() == SdCardState::Transfer) {
         multi_read_active_ = false;
+        pending_read_active_ = false;
         result.response = make_r1(0U);
         return result;
     }
-    if (command.index == 59U && command.argument <= 1U &&
-        state() != SdCardState::PowerUp && state() != SdCardState::Fault) {
+    if (command.index == 59U && command.argument <= 1U && state() != SdCardState::PowerUp &&
+        state() != SdCardState::Fault) {
         command_crc_enabled_ = command.argument == 1U;
         result.response = make_r1(r1_status());
         return result;
@@ -72,10 +87,13 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r1(r1_status());
         return result;
     }
-    if (command.index == 58U && (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
-        result.response = make_r3(r1_status(), (static_cast<std::uint32_t>(registers_.ocr[0]) << 24U) |
-                                             (static_cast<std::uint32_t>(registers_.ocr[1]) << 16U) |
-                                             (static_cast<std::uint32_t>(registers_.ocr[2]) << 8U) | registers_.ocr[3]);
+    if (command.index == 58U &&
+        (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
+        result.response =
+            make_r3(r1_status(), (static_cast<std::uint32_t>(registers_.ocr[0]) << 24U) |
+                                     (static_cast<std::uint32_t>(registers_.ocr[1]) << 16U) |
+                                     (static_cast<std::uint32_t>(registers_.ocr[2]) << 8U) |
+                                     registers_.ocr[3]);
         return result;
     }
     if ((command.index == 9U || command.index == 10U) &&
@@ -91,20 +109,27 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
         result.response = make_r1(r1_status());
         return result;
     }
-    if ((command.index == 17U || command.index == 18U || command.index == 24U || command.index == 25U) &&
+    if ((command.index == 17U || command.index == 18U || command.index == 24U ||
+         command.index == 25U) &&
         (state() == SdCardState::Ready || state() == SdCardState::Transfer)) {
         std::size_t lba = 0;
-        if (!command_lba(command.argument, lba)) { result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError)); return result; }
+        if (!command_lba(command.argument, lba)) {
+            result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError));
+            return result;
+        }
         state_.begin_transfer();
         result.response = make_r1(0U);
         if (command.index == 17U || command.index == 18U) {
-            result.has_read_block = backend_.read(lba, result.read_block);
+            const BlockOperationResult read_result = backend_.read(lba, result.read_block);
+            result.has_read_block = read_result == BlockOperationResult::Complete;
+            pending_read_active_ = read_result == BlockOperationResult::Pending;
+            pending_read_is_multi_ = command.index == 18U;
+            pending_read_lba_ = lba;
             if (command.index == 18U && result.has_read_block) {
                 multi_read_active_ = true;
                 next_multi_read_lba_ = lba + 1;
             }
-        }
-        else {
+        } else {
             pending_write_lba_ = lba;
             multi_write_active_ = command.index == 25U;
             state_.begin_receiving_data();
@@ -115,38 +140,70 @@ SdModelResult SdCardModel::execute(const SdCommand& command) {
     return result;
 }
 
-bool SdCardModel::read_next_multi_block(SdBlock& output) {
-    if (!multi_read_active_ || next_multi_read_lba_ >= registers_.exposed_blocks) return false;
-    if (!backend_.read(next_multi_read_lba_, output)) return false;
+bool SdCardModel::pending_read() const {
+    return pending_read_active_;
+}
+
+BlockOperationResult SdCardModel::retry_pending_read(SdBlock &output) {
+    if (!pending_read_active_)
+        return BlockOperationResult::Failed;
+    const BlockOperationResult result = backend_.read(pending_read_lba_, output);
+    if (result == BlockOperationResult::Complete) {
+        pending_read_active_ = false;
+        if (pending_read_is_multi_) {
+            multi_read_active_ = true;
+            next_multi_read_lba_ = pending_read_lba_ + 1;
+        }
+    } else if (result == BlockOperationResult::Failed) {
+        pending_read_active_ = false;
+        state_.fault();
+    }
+    return result;
+}
+
+bool SdCardModel::read_next_multi_block(SdBlock &output) {
+    if (!multi_read_active_ || next_multi_read_lba_ >= registers_.exposed_blocks)
+        return false;
+    if (backend_.read(next_multi_read_lba_, output) != BlockOperationResult::Complete)
+        return false;
     ++next_multi_read_lba_;
     return true;
 }
 
 bool SdCardModel::finish_multi_write() {
-    if (!multi_write_active_) return false;
+    if (!multi_write_active_)
+        return false;
     multi_write_active_ = false;
     return state_.finish_receiving_data() == SdCardStateError::None;
 }
 
 void SdCardModel::abort_pending_write() {
-    if (state() == SdCardState::ReceivingData) state_.finish_receiving_data();
+    pending_read_active_ = false;
+    if (state() == SdCardState::ReceivingData)
+        state_.finish_receiving_data();
     multi_write_active_ = false;
 }
 
-SdWriteResult SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) {
+SdWriteResult SdCardModel::write_block(const SdBlock &block, std::uint16_t crc) {
     SdWriteResult result;
     if (state() != SdCardState::ReceivingData || crc16(block.data(), block.size()) != crc) {
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError));
         result.data_response = make_data_response(kSdDataResponseCrcError);
         return result;
     }
-    if (!backend_.write(pending_write_lba_, block)) {
+    const BlockOperationResult write_result = backend_.write(pending_write_lba_, block);
+    if (write_result == BlockOperationResult::Pending) {
+        result.pending = true;
+        return result;
+    }
+    if (write_result == BlockOperationResult::Failed) {
         state_.fault();
         result.response = make_r1(static_cast<std::uint8_t>(SdR1::AddressError));
         result.data_response = make_data_response(kSdDataResponseWriteError);
         return result;
     }
-    state_.begin_busy(); state_.finish_busy();
+    state_.begin_busy();
+    state_.finish_busy();
     result.response = make_r1(0U);
     result.data_response = make_data_response(kSdDataResponseAccepted);
     result.busy = true;
@@ -160,4 +217,4 @@ SdWriteResult SdCardModel::write_block(const SdBlock& block, std::uint16_t crc) 
     }
     return result;
 }
-}  // namespace picosd::protocol
+} // namespace picosd::protocol

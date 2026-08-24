@@ -47,16 +47,15 @@ cmake --build build/firmware
 ```
 
 The resulting `picosd_firmware.uf2` is a bring-up image. Its `TARGET_ON` CDC
-command enables a small diagnostic-pattern SD model and connects the PIO
-capture/transmit path to the client SPI pins without per-byte logging.
+command enables the mounted host image and connects the PIO capture/transmit
+path to the client SPI pins without per-byte logging.
 `TARGET_TRACE_ON` enables the same target with verbose USB diagnostics and is
 only suitable for functional tracing, not timing measurements. Use `TARGET_OFF`
 to stop the target and return MISO to its passive state. On CDC connection the
 firmware now initiates the versioned image-host handshake, validates mounted
 media metadata, tracks its cache generation, and services bounded, retryable
-write-through backend requests. A non-blocking SD storage adapter now connects
-that sector pool to the SD model's storage interface: cache misses enqueue CDC
-work, and writes become successful only after a matching host acknowledgement
-is retained. `TARGET_ON` continues to expose the diagnostic RAM image until the
-SPI response worker can defer a data token or busy completion across an
-asynchronous cache miss.
+write-through backend requests. A non-blocking SD storage adapter connects that
+sector pool to the SD model's storage interface: cache misses enqueue CDC work,
+the SPI worker defers read data tokens while those requests are pending, and
+write acceptance is emitted only after a matching host acknowledgement is
+retained.

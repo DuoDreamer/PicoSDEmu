@@ -20,10 +20,9 @@ struct SdSpiTargetWorkerCounters {
 // Bounded queue worker that decouples captured SPI bytes from the portable
 // card engine. Firmware will connect its PIO/DMA queues to this same policy;
 // this class deliberately does not touch hardware or start a timing loop.
-template <std::size_t ReceiveCapacity, std::size_t TransmitCapacity>
-class SdSpiTargetWorker {
-public:
-    explicit SdSpiTargetWorker(SdSpiCardEngine& engine) : engine_(engine) {}
+template <std::size_t ReceiveCapacity, std::size_t TransmitCapacity> class SdSpiTargetWorker {
+  public:
+    explicit SdSpiTargetWorker(SdSpiCardEngine &engine) : engine_(engine) {}
 
     bool capture_byte(std::uint8_t byte) {
         if (!received_.try_push(byte)) {
@@ -40,11 +39,17 @@ public:
         std::uint8_t byte = 0;
         while (max_bytes-- != 0 && received_.try_pop(byte)) {
             const auto output = engine_.push_byte(byte);
-            if (output.has_value()) enqueue_output(*output);
+            if (output.has_value())
+                enqueue_output(*output);
+        }
+        if (transmit_.empty()) {
+            const auto output = engine_.poll_pending_io();
+            if (output.has_value())
+                enqueue_output(*output);
         }
     }
 
-    bool dequeue_transmit_byte(std::uint8_t& byte) {
+    bool dequeue_transmit_byte(std::uint8_t &byte) {
         if (!transmit_.try_pop(byte)) {
             ++counters_.transmit_underruns;
             return false;
@@ -54,7 +59,8 @@ public:
         // hardware adapter to understand card-model state. Refill only after
         // the complete preceding response has left the software queue, which
         // preserves response ordering and bounds storage to one queued block.
-        if (transmit_.empty()) (void)queue_next_multi_read_block();
+        if (transmit_.empty())
+            (void)queue_next_multi_read_block();
         return true;
     }
 
@@ -75,27 +81,34 @@ public:
         chip_select_released();
     }
 
-    [[nodiscard]] const SdSpiTargetWorkerCounters& counters() const { return counters_; }
-    [[nodiscard]] std::size_t pending_receive_bytes() const { return received_.size(); }
-    [[nodiscard]] std::size_t pending_transmit_bytes() const { return transmit_.size(); }
+    [[nodiscard]] const SdSpiTargetWorkerCounters &counters() const {
+        return counters_;
+    }
+    [[nodiscard]] std::size_t pending_receive_bytes() const {
+        return received_.size();
+    }
+    [[nodiscard]] std::size_t pending_transmit_bytes() const {
+        return transmit_.size();
+    }
 
-private:
-    bool enqueue_output(const SdSpiEngineOutput& output) {
+  private:
+    bool enqueue_output(const SdSpiEngineOutput &output) {
         if (output.size > transmit_.available()) {
             ++counters_.transmit_overflows;
             return false;
         }
         for (std::size_t index = 0; index < output.size; ++index) {
             const bool pushed = transmit_.try_push(output.bytes[index]);
-            if (!pushed) return false;
+            if (!pushed)
+                return false;
         }
         return true;
     }
 
-    SdSpiCardEngine& engine_;
+    SdSpiCardEngine &engine_;
     FixedRingQueue<std::uint8_t, ReceiveCapacity> received_;
     FixedRingQueue<std::uint8_t, TransmitCapacity> transmit_;
     SdSpiTargetWorkerCounters counters_{};
 };
 
-}  // namespace picosd::protocol
+} // namespace picosd::protocol

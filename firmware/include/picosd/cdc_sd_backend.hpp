@@ -19,8 +19,10 @@ class CdcSdBackend final : public picosd::protocol::BlockBackend {
     void refresh_media();
 
     [[nodiscard]] std::size_t block_count() const override;
-    [[nodiscard]] bool read(std::size_t lba, picosd::protocol::SdBlock &output) const override;
-    [[nodiscard]] bool write(std::size_t lba, const picosd::protocol::SdBlock &input) override;
+    [[nodiscard]] picosd::protocol::BlockOperationResult
+    read(std::size_t lba, picosd::protocol::SdBlock &output) const override;
+    [[nodiscard]] picosd::protocol::BlockOperationResult
+    write(std::size_t lba, const picosd::protocol::SdBlock &input) override;
 
   private:
     [[nodiscard]] bool address_valid(std::size_t lba) const;
