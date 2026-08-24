@@ -477,7 +477,7 @@ same documented behavior and recovery semantics.
 
 1. [x] Write an original SPI-master physical-card driver from the applicable public
    specifications using the Pico SDK hardware APIs.
-2. [ ] Implement it behind `BlockBackend` with card detect, write protect, capacity,
+2. [x] Implement it behind `BlockBackend` with card detect, write protect, capacity,
    timeout, flush, and removal handling.
 3. [ ] Add an arbiter that prevents emulated-client access during host-directed image
    copy and prevents destructive copy while the medium is exposed.
