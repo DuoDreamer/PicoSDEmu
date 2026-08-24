@@ -455,7 +455,7 @@ is lost after flush, and the endurance image matches the oracle.
 2. [x] Implement the Windows USB, exclusive-file-access, positional-I/O, and flush
    adapters without third-party libraries.
 3. [x] Keep commands, messages, exit codes, and configuration compatible with Linux.
-4. [ ] Add Windows build and packaging scripts that contain only project-authored text.
+4. [x] Add Windows build and packaging scripts that contain only project-authored text.
 
 **Test stage F — cross-platform equivalence:**
 

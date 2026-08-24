@@ -20,6 +20,10 @@ set_target_properties(picosd-host PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
+install(TARGETS picosd-host
+    RUNTIME DESTINATION bin
+)
+
 if(MSVC)
     target_compile_options(picosd-host PRIVATE /W4 /permissive-)
 else()
