@@ -31,6 +31,10 @@ int main() {
 
     RamBlockBackend backend{2};
     SdBlock block{};
+    expect(backend.media_present() && !backend.write_protected(),
+           "RAM backend reports default media capabilities");
+    expect(backend.flush() == BlockOperationResult::Complete,
+           "present backend has a successful default flush");
     expect(backend.read(2, block) == BlockOperationResult::Failed, "out-of-range read is rejected");
     backend.fill_diagnostic_pattern();
     expect(backend.read(1, block) == BlockOperationResult::Complete, "in-range read succeeds");
@@ -42,7 +46,9 @@ int main() {
            "written block reads back");
     expect(backend.write(2, block) == BlockOperationResult::Failed,
            "out-of-range write is rejected");
-    expect(RamBlockBackend{kRamBackendMaximumBlocks + 1}.block_count() == 0,
+    RamBlockBackend unavailable{kRamBackendMaximumBlocks + 1};
+    expect(unavailable.block_count() == 0 && !unavailable.media_present() &&
+               unavailable.flush() == BlockOperationResult::Failed,
            "oversized backend is unavailable");
 
     if (failures != 0)

@@ -14,8 +14,7 @@ constexpr std::uint8_t kReadToken = 0xfe;
 
 } // namespace
 
-PhysicalSdBackend::PhysicalSdBackend(spi_inst_t *spi, Pins pins,
-                                     std::uint32_t baud_hz,
+PhysicalSdBackend::PhysicalSdBackend(spi_inst_t *spi, Pins pins, std::uint32_t baud_hz,
                                      std::uint32_t timeout_ms)
     : spi_(spi), pins_(pins), baud_hz_(baud_hz), timeout_ms_(timeout_ms) {}
 
@@ -41,19 +40,15 @@ void PhysicalSdBackend::deselect() const {
     static_cast<void>(transfer(0xff));
 }
 
-std::uint8_t PhysicalSdBackend::command(std::uint8_t index,
-                                        std::uint32_t argument,
-                                        std::uint8_t crc,
-                                        std::uint32_t *trailing) const {
+std::uint8_t PhysicalSdBackend::command(std::uint8_t index, std::uint32_t argument,
+                                        std::uint8_t crc, std::uint32_t *trailing) const {
     if (!select()) {
         return 0xff;
     }
     const std::array<std::uint8_t, 6> frame{
-        static_cast<std::uint8_t>(0x40U | index),
-        static_cast<std::uint8_t>(argument >> 24U),
-        static_cast<std::uint8_t>(argument >> 16U),
-        static_cast<std::uint8_t>(argument >> 8U),
-        static_cast<std::uint8_t>(argument), crc};
+        static_cast<std::uint8_t>(0x40U | index),   static_cast<std::uint8_t>(argument >> 24U),
+        static_cast<std::uint8_t>(argument >> 16U), static_cast<std::uint8_t>(argument >> 8U),
+        static_cast<std::uint8_t>(argument),        crc};
     for (const auto byte : frame) {
         static_cast<void>(transfer(byte));
     }
@@ -77,6 +72,9 @@ std::uint8_t PhysicalSdBackend::command(std::uint8_t index,
 bool PhysicalSdBackend::wait_byte(std::uint8_t expected) const {
     const auto deadline = make_timeout_time_ms(timeout_ms_);
     do {
+        if (!socket_has_card()) {
+            return false;
+        }
         if (transfer(0xff) == expected) {
             return true;
         }
@@ -86,6 +84,19 @@ bool PhysicalSdBackend::wait_byte(std::uint8_t expected) const {
 
 bool PhysicalSdBackend::initialize() {
     deinitialize();
+    if (pins_.card_detect != Pins::unused) {
+        gpio_init(pins_.card_detect);
+        gpio_set_dir(pins_.card_detect, GPIO_IN);
+        gpio_pull_up(pins_.card_detect);
+    }
+    if (pins_.write_protect != Pins::unused) {
+        gpio_init(pins_.write_protect);
+        gpio_set_dir(pins_.write_protect, GPIO_IN);
+        gpio_pull_up(pins_.write_protect);
+    }
+    if (!socket_has_card()) {
+        return false;
+    }
     spi_init(spi_, 400'000);
     gpio_set_function(pins_.clock, GPIO_FUNC_SPI);
     gpio_set_function(pins_.mosi, GPIO_FUNC_SPI);
@@ -150,9 +161,8 @@ bool PhysicalSdBackend::initialize() {
     if ((csd[0] >> 6U) != 1U) {
         return false; // Capacity decoding below is for the SDHC/SDXC CSD layout.
     }
-    const std::uint32_t c_size =
-        (static_cast<std::uint32_t>(csd[7] & 0x3fU) << 16U) |
-        (static_cast<std::uint32_t>(csd[8]) << 8U) | csd[9];
+    const std::uint32_t c_size = (static_cast<std::uint32_t>(csd[7] & 0x3fU) << 16U) |
+                                 (static_cast<std::uint32_t>(csd[8]) << 8U) | csd[9];
     const std::uint64_t blocks = (static_cast<std::uint64_t>(c_size) + 1U) * 1024U;
     if (blocks > std::numeric_limits<std::size_t>::max()) {
         return false;
@@ -172,9 +182,41 @@ void PhysicalSdBackend::deinitialize() {
     }
 }
 
-bool PhysicalSdBackend::media_present() const { return initialized_; }
+bool PhysicalSdBackend::socket_has_card() const {
+    return pins_.card_detect == Pins::unused || !gpio_get(pins_.card_detect);
+}
 
-std::size_t PhysicalSdBackend::block_count() const { return blocks_; }
+bool PhysicalSdBackend::media_present() const {
+    return initialized_ && socket_has_card();
+}
+
+bool PhysicalSdBackend::write_protected() const {
+    return pins_.write_protect != Pins::unused && gpio_get(pins_.write_protect);
+}
+
+std::size_t PhysicalSdBackend::block_count() const {
+    return media_present() ? blocks_ : 0;
+}
+
+picosd::protocol::BlockOperationResult PhysicalSdBackend::flush() {
+    if (!media_present()) {
+        return picosd::protocol::BlockOperationResult::Failed;
+    }
+    if (!select()) {
+        return picosd::protocol::BlockOperationResult::Pending;
+    }
+    const auto ready = wait_byte(0xff);
+    deselect();
+    if (!ready) {
+        return socket_has_card() ? picosd::protocol::BlockOperationResult::Pending
+                                 : picosd::protocol::BlockOperationResult::Failed;
+    }
+    const auto status = command(13, 0, 0x01);
+    const auto second_status = transfer(0xff);
+    deselect();
+    return status == 0 && second_status == 0 ? picosd::protocol::BlockOperationResult::Complete
+                                             : picosd::protocol::BlockOperationResult::Failed;
+}
 
 std::uint32_t PhysicalSdBackend::address(std::size_t lba) const {
     return high_capacity_ ? static_cast<std::uint32_t>(lba)
@@ -182,14 +224,14 @@ std::uint32_t PhysicalSdBackend::address(std::size_t lba) const {
 }
 
 picosd::protocol::BlockOperationResult
-PhysicalSdBackend::read(std::size_t lba,
-                        picosd::protocol::SdBlock &output) const {
-    if (!initialized_ || lba >= blocks_ || lba > UINT32_MAX) {
+PhysicalSdBackend::read(std::size_t lba, picosd::protocol::SdBlock &output) const {
+    if (!media_present() || lba >= blocks_ || lba > UINT32_MAX) {
         return picosd::protocol::BlockOperationResult::Failed;
     }
     if (command(17, address(lba), 0x01) != 0 || !wait_byte(kReadToken)) {
         deselect();
-        return picosd::protocol::BlockOperationResult::Pending;
+        return socket_has_card() ? picosd::protocol::BlockOperationResult::Pending
+                                 : picosd::protocol::BlockOperationResult::Failed;
     }
     for (auto &byte : output) {
         byte = transfer(0xff);
@@ -201,9 +243,8 @@ PhysicalSdBackend::read(std::size_t lba,
 }
 
 picosd::protocol::BlockOperationResult
-PhysicalSdBackend::write(std::size_t lba,
-                         const picosd::protocol::SdBlock &input) {
-    if (!initialized_ || lba >= blocks_ || lba > UINT32_MAX) {
+PhysicalSdBackend::write(std::size_t lba, const picosd::protocol::SdBlock &input) {
+    if (!media_present() || write_protected() || lba >= blocks_ || lba > UINT32_MAX) {
         return picosd::protocol::BlockOperationResult::Failed;
     }
     if (command(24, address(lba), 0x01) != 0) {
@@ -221,7 +262,8 @@ PhysicalSdBackend::write(std::size_t lba,
     const auto ready = accepted && wait_byte(0xff);
     deselect();
     return ready ? picosd::protocol::BlockOperationResult::Complete
-                 : picosd::protocol::BlockOperationResult::Pending;
+                 : (socket_has_card() ? picosd::protocol::BlockOperationResult::Pending
+                                      : picosd::protocol::BlockOperationResult::Failed);
 }
 
 } // namespace picosd::firmware

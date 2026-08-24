@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 #include "hardware/spi.h"
 #include "picosd/protocol/sd_card_state.hpp"
@@ -15,18 +16,22 @@ namespace picosd::firmware {
 class PhysicalSdBackend final : public picosd::protocol::BlockBackend {
   public:
     struct Pins {
+        static constexpr unsigned int unused = std::numeric_limits<unsigned int>::max();
         unsigned int clock;
         unsigned int mosi;
         unsigned int miso;
         unsigned int chip_select;
+        unsigned int card_detect = unused;
+        unsigned int write_protect = unused;
     };
 
-    PhysicalSdBackend(spi_inst_t *spi, Pins pins, std::uint32_t baud_hz,
-                      std::uint32_t timeout_ms);
+    PhysicalSdBackend(spi_inst_t *spi, Pins pins, std::uint32_t baud_hz, std::uint32_t timeout_ms);
 
     [[nodiscard]] bool initialize();
     void deinitialize();
-    [[nodiscard]] bool media_present() const;
+    [[nodiscard]] bool media_present() const override;
+    [[nodiscard]] bool write_protected() const override;
+    [[nodiscard]] picosd::protocol::BlockOperationResult flush() override;
 
     [[nodiscard]] std::size_t block_count() const override;
     [[nodiscard]] picosd::protocol::BlockOperationResult
@@ -35,12 +40,12 @@ class PhysicalSdBackend final : public picosd::protocol::BlockBackend {
     write(std::size_t lba, const picosd::protocol::SdBlock &input) override;
 
   private:
-    [[nodiscard]] std::uint8_t command(std::uint8_t index, std::uint32_t argument,
-                                       std::uint8_t crc,
+    [[nodiscard]] std::uint8_t command(std::uint8_t index, std::uint32_t argument, std::uint8_t crc,
                                        std::uint32_t *trailing = nullptr) const;
     [[nodiscard]] bool select() const;
     void deselect() const;
     [[nodiscard]] bool wait_byte(std::uint8_t expected) const;
+    [[nodiscard]] bool socket_has_card() const;
     [[nodiscard]] std::uint8_t transfer(std::uint8_t output) const;
     [[nodiscard]] std::uint32_t address(std::size_t lba) const;
 

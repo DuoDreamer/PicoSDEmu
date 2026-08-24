@@ -24,6 +24,15 @@ class BlockBackend {
   public:
     virtual ~BlockBackend() = default;
     [[nodiscard]] virtual std::size_t block_count() const = 0;
+    [[nodiscard]] virtual bool media_present() const {
+        return block_count() != 0;
+    }
+    [[nodiscard]] virtual bool write_protected() const {
+        return false;
+    }
+    [[nodiscard]] virtual BlockOperationResult flush() {
+        return media_present() ? BlockOperationResult::Complete : BlockOperationResult::Failed;
+    }
     [[nodiscard]] virtual BlockOperationResult read(std::size_t lba, SdBlock &output) const = 0;
     [[nodiscard]] virtual BlockOperationResult write(std::size_t lba, const SdBlock &input) = 0;
 };
