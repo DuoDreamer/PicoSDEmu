@@ -30,6 +30,7 @@ add_executable(picosd_firmware
     src/cdc_shell.cpp
     src/cdc_sd_backend.cpp
     src/main.cpp
+    src/physical_sd_backend.cpp
     src/sd_target_monitor.cpp
     src/spi_capture.cpp
     src/spi_transmit.cpp
@@ -44,6 +45,7 @@ target_link_libraries(picosd_firmware PRIVATE
     pico_stdlib
     hardware_dma
     hardware_pio
+    hardware_spi
     picosd-protocol-core
     tinyusb_device
     tinyusb_board
