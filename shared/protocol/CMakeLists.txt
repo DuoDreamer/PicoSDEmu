@@ -1,5 +1,6 @@
 add_library(picosd-protocol-core
     src/block_backend_arbiter.cpp
+    src/block_media_copier.cpp
     src/cdc_block_response.cpp
     src/cdc_media_info.cpp
     src/cdc_operation_coordinator.cpp
