@@ -4,12 +4,13 @@
 
 namespace picosd::protocol {
 
-SdSpiCardEngine::SdSpiCardEngine(SdCardModel& model) : model_(model) {}
+SdSpiCardEngine::SdSpiCardEngine(SdCardModel &model) : model_(model) {}
 
 std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
     if (data_framer_.receiving()) {
         const auto event = data_framer_.push_byte(byte);
-        if (!event.has_value()) return std::nullopt;
+        if (!event.has_value())
+            return std::nullopt;
 
         SdSpiEngineOutput output;
         if (event->type == SdSpiDataEventType::Stop) {
@@ -18,6 +19,12 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
         }
 
         const SdWriteResult write_result = model_.write_block(event->payload, event->crc);
+        if (write_result.pending) {
+            write_pending_ = true;
+            pending_write_block_ = event->payload;
+            pending_write_crc_ = event->crc;
+            return std::nullopt;
+        }
         if (write_result.data_response == make_data_response(kSdDataResponseCrcError)) {
             ++counters_.data_crc_errors;
         }
@@ -28,21 +35,24 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
     }
 
     const auto decoded = command_framer_.push_byte(
-        byte,
-        model_.command_crc_enabled() ? SdCrcPolicy::Required : SdCrcPolicy::Ignored);
-    if (!decoded.has_value()) return std::nullopt;
+        byte, model_.command_crc_enabled() ? SdCrcPolicy::Required : SdCrcPolicy::Ignored);
+    if (!decoded.has_value())
+        return std::nullopt;
 
     SdSpiEngineOutput output;
     if (decoded->error != SdCommandError::None) {
-        if (decoded->error == SdCommandError::CrcMismatch) ++counters_.command_crc_errors;
+        if (decoded->error == SdCommandError::CrcMismatch)
+            ++counters_.command_crc_errors;
         append_response(output, make_r1(static_cast<std::uint8_t>(SdR1::ComCrcError)));
         return output;
     }
 
     const SdModelResult result = model_.execute(decoded->command);
     append_response(output, result.response);
-    if (result.has_read_block) append_read_block(output, result.read_block);
-    if (result.has_register_data) append_register_data(output, result.register_data);
+    if (result.has_read_block)
+        append_read_block(output, result.read_block);
+    if (result.has_register_data)
+        append_register_data(output, result.register_data);
 
     if (decoded->command.index == 24U && model_.state() == SdCardState::ReceivingData) {
         data_framer_.begin(SdSpiWriteMode::SingleBlock);
@@ -53,9 +63,35 @@ std::optional<SdSpiEngineOutput> SdSpiCardEngine::push_byte(std::uint8_t byte) {
     return output;
 }
 
+std::optional<SdSpiEngineOutput> SdSpiCardEngine::poll_pending_io() {
+    if (model_.pending_read()) {
+        SdBlock block{};
+        const BlockOperationResult result = model_.retry_pending_read(block);
+        if (result == BlockOperationResult::Pending)
+            return std::nullopt;
+        SdSpiEngineOutput output;
+        if (result == BlockOperationResult::Complete)
+            append_read_block(output, block);
+        return output;
+    }
+    if (!write_pending_)
+        return std::nullopt;
+
+    const SdWriteResult result = model_.write_block(pending_write_block_, pending_write_crc_);
+    if (result.pending)
+        return std::nullopt;
+    write_pending_ = false;
+    SdSpiEngineOutput output;
+    output.bytes[0] = result.data_response;
+    output.size = 1;
+    output.busy = result.busy;
+    return output;
+}
+
 std::optional<SdSpiEngineOutput> SdSpiCardEngine::next_multi_read_block() {
     SdBlock block{};
-    if (!model_.read_next_multi_block(block)) return std::nullopt;
+    if (!model_.read_next_multi_block(block))
+        return std::nullopt;
 
     SdSpiEngineOutput output;
     append_read_block(output, block);
@@ -68,28 +104,30 @@ void SdSpiCardEngine::chip_select_released() {
     }
     command_framer_.reset();
     data_framer_.reset();
+    write_pending_ = false;
     model_.abort_pending_write();
 }
 
-void SdSpiCardEngine::append_response(SdSpiEngineOutput& output, const SdResponse& response) {
+void SdSpiCardEngine::append_response(SdSpiEngineOutput &output, const SdResponse &response) {
     for (std::size_t index = 0; index < response.size; ++index) {
         output.bytes[output.size++] = response.bytes[index];
     }
 }
 
-void SdSpiCardEngine::append_read_block(SdSpiEngineOutput& output, const SdBlock& block) {
+void SdSpiCardEngine::append_read_block(SdSpiEngineOutput &output, const SdBlock &block) {
     const SdDataBlock data = make_read_data_block(block);
-    for (const std::uint8_t byte : data.bytes) output.bytes[output.size++] = byte;
+    for (const std::uint8_t byte : data.bytes)
+        output.bytes[output.size++] = byte;
 }
 
-void SdSpiCardEngine::append_register_data(
-    SdSpiEngineOutput& output,
-    const std::array<std::uint8_t, 16>& register_data) {
+void SdSpiCardEngine::append_register_data(SdSpiEngineOutput &output,
+                                           const std::array<std::uint8_t, 16> &register_data) {
     output.bytes[output.size++] = kSdStartBlockToken;
-    for (const std::uint8_t byte : register_data) output.bytes[output.size++] = byte;
+    for (const std::uint8_t byte : register_data)
+        output.bytes[output.size++] = byte;
     const std::uint16_t crc = crc16(register_data.data(), register_data.size());
     output.bytes[output.size++] = static_cast<std::uint8_t>(crc >> 8U);
     output.bytes[output.size++] = static_cast<std::uint8_t>(crc);
 }
 
-}  // namespace picosd::protocol
+} // namespace picosd::protocol

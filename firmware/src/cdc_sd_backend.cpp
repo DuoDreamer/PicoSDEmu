@@ -6,6 +6,7 @@
 #include "picosd/cdc_backend_service.hpp"
 
 namespace picosd::firmware {
+using picosd::protocol::BlockOperationResult;
 
 void CdcSdBackend::refresh_media() {
     const auto &media = cdc_media_info();
@@ -28,35 +29,37 @@ bool CdcSdBackend::address_valid(std::size_t lba) const {
     return present_ && static_cast<std::uint64_t>(lba) < blocks_;
 }
 
-bool CdcSdBackend::read(std::size_t lba, picosd::protocol::SdBlock &output) const {
+picosd::protocol::BlockOperationResult CdcSdBackend::read(std::size_t lba,
+                                                          picosd::protocol::SdBlock &output) const {
     if (!address_valid(lba))
-        return false;
+        return BlockOperationResult::Failed;
     if (copy_cdc_ready(lba, generation_, output))
-        return true;
-    (void)begin_cdc_read(lba, generation_);
-    return false;
+        return BlockOperationResult::Complete;
+    return begin_cdc_read(lba, generation_) ? BlockOperationResult::Pending
+                                            : BlockOperationResult::Failed;
 }
 
-bool CdcSdBackend::write(std::size_t lba, const picosd::protocol::SdBlock &input) {
+picosd::protocol::BlockOperationResult CdcSdBackend::write(std::size_t lba,
+                                                           const picosd::protocol::SdBlock &input) {
     if (read_only_ || !address_valid(lba))
-        return false;
+        return BlockOperationResult::Failed;
 
     if (write_pending_) {
         if (pending_write_lba_ != lba || pending_write_data_ != input)
-            return false;
+            return BlockOperationResult::Failed;
         picosd::protocol::CdcBlockData ready{};
         if (!copy_cdc_ready(lba, generation_, ready) || ready != input)
-            return false;
+            return BlockOperationResult::Pending;
         write_pending_ = false;
-        return true;
+        return BlockOperationResult::Complete;
     }
 
     if (!begin_cdc_write(lba, generation_, input))
-        return false;
+        return BlockOperationResult::Failed;
     pending_write_lba_ = lba;
     pending_write_data_ = input;
     write_pending_ = true;
-    return false;
+    return BlockOperationResult::Pending;
 }
 
 } // namespace picosd::firmware

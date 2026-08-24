@@ -18,35 +18,42 @@ struct SdWriteResult {
     SdResponse response{};
     std::uint8_t data_response = kSdDataResponseWriteError;
     bool busy = false;
+    bool pending = false;
 };
 
 class SdCardModel {
-public:
-    SdCardModel(SdCardType type, BlockBackend& backend);
+  public:
+    SdCardModel(SdCardType type, BlockBackend &backend);
     [[nodiscard]] SdCardState state() const;
     [[nodiscard]] bool command_crc_enabled() const;
-    [[nodiscard]] const SdCardRegisters& registers() const;
-    SdModelResult execute(const SdCommand& command);
-    bool read_next_multi_block(SdBlock& output);
+    [[nodiscard]] const SdCardRegisters &registers() const;
+    void refresh_capacity();
+    SdModelResult execute(const SdCommand &command);
+    [[nodiscard]] bool pending_read() const;
+    [[nodiscard]] BlockOperationResult retry_pending_read(SdBlock &output);
+    bool read_next_multi_block(SdBlock &output);
     bool finish_multi_write();
     void abort_pending_write();
-    SdWriteResult write_block(const SdBlock& block, std::uint16_t crc);
+    SdWriteResult write_block(const SdBlock &block, std::uint16_t crc);
 
-private:
-    [[nodiscard]] bool command_lba(std::uint32_t argument, std::size_t& lba) const;
+  private:
+    [[nodiscard]] bool command_lba(std::uint32_t argument, std::size_t &lba) const;
     [[nodiscard]] std::uint8_t r1_status() const;
 
-    BlockBackend& backend_;
+    BlockBackend &backend_;
     SdCardRegisters registers_;
     SdCardType type_;
     SdCardStateMachine state_;
     bool app_command_pending_ = false;
     std::uint32_t preerase_block_count_ = 0;
     bool multi_read_active_ = false;
+    bool pending_read_active_ = false;
+    bool pending_read_is_multi_ = false;
+    std::size_t pending_read_lba_ = 0;
     std::size_t next_multi_read_lba_ = 0;
     bool multi_write_active_ = false;
     bool command_crc_enabled_ = false;
     std::size_t pending_write_lba_ = 0;
 };
 
-}  // namespace picosd::protocol
+} // namespace picosd::protocol

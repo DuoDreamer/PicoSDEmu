@@ -386,11 +386,11 @@ mismatch or electrical violation.
    `eject`, `status`, and `flush` commands.
 5. [x] Implement positional image reads/writes, image-size validation, read-only mode,
    exclusive ownership, capacity reporting, and explicit flush.
-6. [ ] Connect the Pico USB backend to the SD model using write-through behavior and
+6. [x] Connect the Pico USB backend to the SD model using write-through behavior and
    a fixed pool of aligned 512-byte sector buffers.
    - [x] Add the non-blocking storage adapter that queues cache misses and exposes
      writes only after the host acknowledgement is retained.
-   - [ ] Teach the SPI response worker to defer data tokens and write completion
+   - [x] Teach the SPI response worker to defer data tokens and write completion
      while an adapter operation is pending, then select the adapter for `TARGET_ON`.
 
 **Test stage D — transport and image integration:**
