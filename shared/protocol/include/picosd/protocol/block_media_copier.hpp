@@ -10,6 +10,7 @@ namespace picosd::protocol {
 enum class BlockCopyResult {
     Complete,
     Cancelled,
+    ConfirmationRequired,
     OwnershipUnavailable,
     SourceUnavailable,
     DestinationUnavailable,
@@ -44,12 +45,16 @@ class BlockCopyObserver {
 // Acquires the physical backend's host-copy ownership for the complete operation
 // and releases it on every result path. These entry points are the safe boundary
 // used by the two directional host copy commands: the other backend must already
-// be exclusively owned by the caller (for example, a locked image file).
-[[nodiscard]] BlockCopyResult copy_to_exclusive_backend(
-    BlockBackend &source, BlockBackendArbiter &destination, bool verify,
-    BlockCopyObserver *observer = nullptr);
-[[nodiscard]] BlockCopyResult copy_from_exclusive_backend(
-    BlockBackendArbiter &source, BlockBackend &destination, bool verify,
-    BlockCopyObserver *observer = nullptr);
+// be exclusively owned by the caller (for example, a locked image file). They
+// reject the operation before acquiring either backend unless the caller records
+// explicit confirmation of the destructive destination.
+[[nodiscard]] BlockCopyResult copy_to_exclusive_backend(BlockBackend &source,
+                                                        BlockBackendArbiter &destination,
+                                                        bool destination_confirmed, bool verify,
+                                                        BlockCopyObserver *observer = nullptr);
+[[nodiscard]] BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source,
+                                                          BlockBackend &destination,
+                                                          bool destination_confirmed, bool verify,
+                                                          BlockCopyObserver *observer = nullptr);
 
 } // namespace picosd::protocol

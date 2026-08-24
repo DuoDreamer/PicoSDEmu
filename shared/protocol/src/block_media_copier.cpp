@@ -104,7 +104,10 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
 }
 
 BlockCopyResult copy_to_exclusive_backend(BlockBackend &source, BlockBackendArbiter &destination,
-                                          bool verify, BlockCopyObserver *observer) {
+                                          bool destination_confirmed, bool verify,
+                                          BlockCopyObserver *observer) {
+    if (!destination_confirmed)
+        return BlockCopyResult::ConfirmationRequired;
     HostCopyOwnership ownership{destination};
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;
@@ -112,9 +115,11 @@ BlockCopyResult copy_to_exclusive_backend(BlockBackend &source, BlockBackendArbi
     return copy_block_media(source, physical, verify, observer);
 }
 
-BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source,
-                                            BlockBackend &destination, bool verify,
+BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source, BlockBackend &destination,
+                                            bool destination_confirmed, bool verify,
                                             BlockCopyObserver *observer) {
+    if (!destination_confirmed)
+        return BlockCopyResult::ConfirmationRequired;
     HostCopyOwnership ownership{source};
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;
