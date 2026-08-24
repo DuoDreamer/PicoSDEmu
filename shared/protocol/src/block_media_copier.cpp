@@ -3,6 +3,50 @@
 namespace picosd::protocol {
 namespace {
 
+class HostCopyBackend final : public BlockBackend {
+  public:
+    explicit HostCopyBackend(BlockBackendArbiter &arbiter) : arbiter_(arbiter) {}
+
+    std::size_t block_count() const override {
+        return arbiter_.host_copy_block_count();
+    }
+    bool media_present() const override {
+        return arbiter_.host_copy_media_present();
+    }
+    bool write_protected() const override {
+        return arbiter_.host_copy_write_protected();
+    }
+    BlockOperationResult flush() override {
+        return arbiter_.host_copy_flush();
+    }
+    BlockOperationResult read(std::size_t lba, SdBlock &output) const override {
+        return arbiter_.host_copy_read(lba, output);
+    }
+    BlockOperationResult write(std::size_t lba, const SdBlock &input) override {
+        return arbiter_.host_copy_write(lba, input);
+    }
+
+  private:
+    BlockBackendArbiter &arbiter_;
+};
+
+class HostCopyOwnership final {
+  public:
+    explicit HostCopyOwnership(BlockBackendArbiter &arbiter)
+        : arbiter_(arbiter), acquired_(arbiter_.begin_host_copy()) {}
+    ~HostCopyOwnership() {
+        if (acquired_)
+            (void)arbiter_.end_host_copy();
+    }
+    [[nodiscard]] bool acquired() const {
+        return acquired_;
+    }
+
+  private:
+    BlockBackendArbiter &arbiter_;
+    bool acquired_;
+};
+
 bool cancelled(const BlockCopyObserver *observer) {
     return observer != nullptr && observer->cancellation_requested();
 }
@@ -57,6 +101,25 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
             return BlockCopyResult::VerificationFailed;
     }
     return BlockCopyResult::Complete;
+}
+
+BlockCopyResult copy_to_exclusive_backend(BlockBackend &source, BlockBackendArbiter &destination,
+                                          bool verify, BlockCopyObserver *observer) {
+    HostCopyOwnership ownership{destination};
+    if (!ownership.acquired())
+        return BlockCopyResult::OwnershipUnavailable;
+    HostCopyBackend physical{destination};
+    return copy_block_media(source, physical, verify, observer);
+}
+
+BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source,
+                                            BlockBackend &destination, bool verify,
+                                            BlockCopyObserver *observer) {
+    HostCopyOwnership ownership{source};
+    if (!ownership.acquired())
+        return BlockCopyResult::OwnershipUnavailable;
+    HostCopyBackend physical{source};
+    return copy_block_media(physical, destination, verify, observer);
 }
 
 } // namespace picosd::protocol
