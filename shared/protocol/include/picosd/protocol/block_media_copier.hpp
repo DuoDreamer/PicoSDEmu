@@ -25,9 +25,13 @@ enum class BlockCopyResult {
 struct BlockCopyProgress {
     std::size_t completed_blocks = 0;
     std::size_t total_blocks = 0;
+    std::size_t verified_blocks = 0;
+    bool verifying = false;
 };
 
-// Receives progress only at sector boundaries. Returning true from
+// Receives progress only at sector boundaries. During optional verification,
+// verifying is true and verified_blocks advances independently while
+// completed_blocks remains the number of copied sectors. Returning true from
 // cancellation_requested stops before the next sector is read or written.
 class BlockCopyObserver {
   public:

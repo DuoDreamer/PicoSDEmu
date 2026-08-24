@@ -51,9 +51,10 @@ bool cancelled(const BlockCopyObserver *observer) {
     return observer != nullptr && observer->cancellation_requested();
 }
 
-void report(BlockCopyObserver *observer, std::size_t completed, std::size_t total) {
+void report(BlockCopyObserver *observer, std::size_t completed, std::size_t total,
+            std::size_t verified = 0, bool verifying = false) {
     if (observer != nullptr) {
-        observer->progress({completed, total});
+        observer->progress({completed, total, verified, verifying});
     }
 }
 
@@ -89,6 +90,7 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
     if (!verify)
         return BlockCopyResult::Complete;
 
+    report(observer, blocks, blocks, 0, true);
     SdBlock expected{};
     SdBlock actual{};
     for (std::size_t lba = 0; lba < blocks; ++lba) {
@@ -99,6 +101,7 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
             return BlockCopyResult::ReadFailed;
         if (expected != actual)
             return BlockCopyResult::VerificationFailed;
+        report(observer, blocks, blocks, lba + 1, true);
     }
     return BlockCopyResult::Complete;
 }

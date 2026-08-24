@@ -84,8 +84,9 @@ int main() {
     expect(copy_block_media(source, destination, true, &observer) == BlockCopyResult::Complete,
            "copy and verification complete");
     expect(observer.last_.completed_blocks == 3 && observer.last_.total_blocks == 3 &&
-               observer.reports_ == 4 && destination.flushes == 1,
-           "progress and flush are reported");
+               observer.last_.verified_blocks == 3 && observer.last_.verifying &&
+               observer.reports_ == 8 && destination.flushes == 1,
+           "copy, verification, and flush progress are reported");
     for (std::size_t lba = 0; lba < 3; ++lba) {
         SdBlock copied{};
         expect(destination.read(lba, copied) == BlockOperationResult::Complete &&
@@ -102,6 +103,24 @@ int main() {
     expect(cancelled_destination.read(1, untouched) == BlockOperationResult::Complete &&
                untouched.front() == 0 && cancelled_destination.flushes == 0,
            "cancellation does not start the next block or claim a flush");
+
+    ConfigurableBackend verification_cancel_destination{3};
+    class VerificationCancellation final : public BlockCopyObserver {
+      public:
+        bool cancellation_requested() const override {
+            return progress_.verifying && progress_.verified_blocks == 1;
+        }
+        void progress(BlockCopyProgress value) override {
+            progress_ = value;
+        }
+        BlockCopyProgress progress_{};
+    } verification_cancellation;
+    expect(copy_block_media(source, verification_cancel_destination, true,
+                            &verification_cancellation) == BlockCopyResult::Cancelled &&
+               verification_cancellation.progress_.completed_blocks == 3 &&
+               verification_cancellation.progress_.verified_blocks == 1 &&
+               verification_cancellation.progress_.verifying,
+           "verification progress exposes a safe cancellation boundary");
 
     ConfigurableBackend small{2};
     expect(copy_block_media(source, small, false) == BlockCopyResult::DestinationTooSmall,
