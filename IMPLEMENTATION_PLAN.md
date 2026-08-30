@@ -481,7 +481,7 @@ same documented behavior and recovery semantics.
    timeout, flush, and removal handling.
 3. [x] Add an arbiter that prevents emulated-client access during host-directed image
    copy and prevents destructive copy while the medium is exposed.
-4. [ ] Add `copy-image-to-sd` and `copy-sd-to-image` with explicit destination
+4. [x] Add `copy-image-to-sd` and `copy-sd-to-image` with explicit destination
    confirmation, progress, safe-boundary cancellation, flush, and verification.
 
 **Test stage G — physical media safety:**
