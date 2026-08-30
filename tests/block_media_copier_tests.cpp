@@ -70,6 +70,50 @@ class ConfigurableBackend final : public BlockBackend {
     std::size_t flushes = 0;
 };
 
+class ReadTriggeredCancellation final : public BlockCopyObserver {
+  public:
+    explicit ReadTriggeredCancellation(bool &source_read) : source_read_(source_read) {}
+
+    bool cancellation_requested() const override {
+        return source_read_;
+    }
+    void progress(BlockCopyProgress) override {}
+
+  private:
+    bool &source_read_;
+};
+
+class CancellationSource final : public BlockBackend {
+  public:
+    CancellationSource(BlockBackend &backend, bool &source_read)
+        : backend_(backend), source_read_(source_read) {}
+
+    std::size_t block_count() const override {
+        return backend_.block_count();
+    }
+    bool media_present() const override {
+        return backend_.media_present();
+    }
+    bool write_protected() const override {
+        return backend_.write_protected();
+    }
+    BlockOperationResult flush() override {
+        return backend_.flush();
+    }
+    BlockOperationResult read(std::size_t lba, SdBlock &output) const override {
+        const auto result = backend_.read(lba, output);
+        source_read_ = true;
+        return result;
+    }
+    BlockOperationResult write(std::size_t lba, const SdBlock &input) override {
+        return backend_.write(lba, input);
+    }
+
+  private:
+    BlockBackend &backend_;
+    bool &source_read_;
+};
+
 } // namespace
 
 int main() {
@@ -103,6 +147,17 @@ int main() {
     expect(cancelled_destination.read(1, untouched) == BlockOperationResult::Complete &&
                untouched.front() == 0 && cancelled_destination.flushes == 0,
            "cancellation does not start the next block or claim a flush");
+
+    bool source_read = false;
+    CancellationSource cancellation_source{source, source_read};
+    ReadTriggeredCancellation cancellation_during_read{source_read};
+    ConfigurableBackend read_cancel_destination{3};
+    expect(copy_block_media(cancellation_source, read_cancel_destination, false,
+                            &cancellation_during_read) == BlockCopyResult::Cancelled,
+           "cancellation during a source read is honored before writing");
+    expect(read_cancel_destination.read(0, untouched) == BlockOperationResult::Complete &&
+               untouched.front() == 0 && read_cancel_destination.flushes == 0,
+           "cancellation after reading leaves the destination unchanged");
 
     ConfigurableBackend final_boundary_destination{3};
     Observer final_boundary_cancellation{3};
