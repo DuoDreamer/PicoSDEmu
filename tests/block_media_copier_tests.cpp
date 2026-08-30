@@ -38,12 +38,15 @@ class ConfigurableBackend final : public BlockBackend {
   public:
     explicit ConfigurableBackend(std::size_t blocks) : storage_(blocks) {}
     std::size_t block_count() const override {
+        ++block_count_queries;
         return storage_.block_count();
     }
     bool media_present() const override {
+        ++media_queries;
         return present;
     }
     bool write_protected() const override {
+        ++write_protect_queries;
         return readonly;
     }
     BlockOperationResult flush() override {
@@ -70,6 +73,9 @@ class ConfigurableBackend final : public BlockBackend {
     std::size_t fail_write_lba = static_cast<std::size_t>(-1);
     std::size_t flushes = 0;
     mutable std::size_t reads = 0;
+    mutable std::size_t block_count_queries = 0;
+    mutable std::size_t media_queries = 0;
+    mutable std::size_t write_protect_queries = 0;
 };
 
 class ReadTriggeredCancellation final : public BlockCopyObserver {
@@ -126,6 +132,30 @@ int main() {
         block.fill(static_cast<std::uint8_t>(lba + 1));
         expect(source.write(lba, block) == BlockOperationResult::Complete, "seed source");
     }
+    Observer cancellation_before_preflight{0};
+    expect(copy_block_media(source, destination, false, &cancellation_before_preflight) ==
+                   BlockCopyResult::Cancelled &&
+               source.media_queries == 0 && source.block_count_queries == 0 &&
+               destination.media_queries == 0 && destination.block_count_queries == 0 &&
+               destination.write_protect_queries == 0,
+           "cancellation before preflight avoids all backend queries");
+
+    class PreflightCancellation final : public BlockCopyObserver {
+      public:
+        explicit PreflightCancellation(const ConfigurableBackend &source) : source_(source) {}
+        bool cancellation_requested() const override {
+            return source_.media_queries != 0;
+        }
+        void progress(BlockCopyProgress) override {}
+
+      private:
+        const ConfigurableBackend &source_;
+    } cancellation_during_preflight{source};
+    expect(copy_block_media(source, destination, false, &cancellation_during_preflight) ==
+                   BlockCopyResult::Cancelled &&
+               source.media_queries == 1 && destination.media_queries == 0,
+           "cancellation during preflight stops before querying the destination");
+
     Observer observer;
     expect(copy_block_media(source, destination, true, &observer) == BlockCopyResult::Complete,
            "copy and verification complete");
