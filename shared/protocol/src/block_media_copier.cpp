@@ -106,9 +106,16 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
     for (std::size_t lba = 0; lba < blocks; ++lba) {
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
-        if (source.read(lba, expected) != BlockOperationResult::Complete ||
-            destination.read(lba, actual) != BlockOperationResult::Complete)
+        if (source.read(lba, expected) != BlockOperationResult::Complete)
             return BlockCopyResult::ReadFailed;
+        // Verification reads can block just like copy reads. Avoid starting a
+        // second device operation when cancellation arrived during the first.
+        if (cancelled(observer))
+            return BlockCopyResult::Cancelled;
+        if (destination.read(lba, actual) != BlockOperationResult::Complete)
+            return BlockCopyResult::ReadFailed;
+        if (cancelled(observer))
+            return BlockCopyResult::Cancelled;
         if (expected != actual)
             return BlockCopyResult::VerificationFailed;
         report(observer, blocks, blocks, lba + 1, true);

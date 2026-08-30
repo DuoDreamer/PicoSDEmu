@@ -51,6 +51,7 @@ class ConfigurableBackend final : public BlockBackend {
         return fail_flush ? BlockOperationResult::Failed : BlockOperationResult::Complete;
     }
     BlockOperationResult read(std::size_t lba, SdBlock &output) const override {
+        ++reads;
         if (lba == fail_read_lba)
             return BlockOperationResult::Failed;
         return storage_.read(lba, output);
@@ -68,6 +69,7 @@ class ConfigurableBackend final : public BlockBackend {
     std::size_t fail_read_lba = static_cast<std::size_t>(-1);
     std::size_t fail_write_lba = static_cast<std::size_t>(-1);
     std::size_t flushes = 0;
+    mutable std::size_t reads = 0;
 };
 
 class ReadTriggeredCancellation final : public BlockCopyObserver {
@@ -184,6 +186,55 @@ int main() {
                verification_cancellation.progress_.verified_blocks == 1 &&
                verification_cancellation.progress_.verifying,
            "verification progress exposes a safe cancellation boundary");
+
+    ConfigurableBackend verification_read_source{1};
+    ConfigurableBackend verification_read_destination{1};
+    block.fill(42);
+    expect(verification_read_source.write(0, block) == BlockOperationResult::Complete,
+           "seed verification cancellation source");
+    class VerificationReadCancellation final : public BlockCopyObserver {
+      public:
+        explicit VerificationReadCancellation(const ConfigurableBackend &source)
+            : source_(source) {}
+        bool cancellation_requested() const override {
+            return verifying_ && source_.reads == 2;
+        }
+        void progress(BlockCopyProgress value) override {
+            verifying_ = value.verifying;
+        }
+
+      private:
+        const ConfigurableBackend &source_;
+        bool verifying_ = false;
+    } verification_read_cancellation{verification_read_source};
+    expect(copy_block_media(verification_read_source, verification_read_destination, true,
+                            &verification_read_cancellation) == BlockCopyResult::Cancelled &&
+               verification_read_source.reads == 2 && verification_read_destination.reads == 0,
+           "cancellation during a verification source read skips the destination read");
+
+    ConfigurableBackend destination_read_source{1};
+    ConfigurableBackend destination_read_destination{1};
+    expect(destination_read_source.write(0, block) == BlockOperationResult::Complete,
+           "seed destination-read cancellation source");
+    class DestinationReadCancellation final : public BlockCopyObserver {
+      public:
+        explicit DestinationReadCancellation(const ConfigurableBackend &destination)
+            : destination_(destination) {}
+        bool cancellation_requested() const override {
+            return verifying_ && destination_.reads == 1;
+        }
+        void progress(BlockCopyProgress value) override {
+            verifying_ = value.verifying;
+        }
+
+      private:
+        const ConfigurableBackend &destination_;
+        bool verifying_ = false;
+    } destination_read_cancellation{destination_read_destination};
+    expect(copy_block_media(destination_read_source, destination_read_destination, true,
+                            &destination_read_cancellation) == BlockCopyResult::Cancelled &&
+               destination_read_source.reads == 2 && destination_read_destination.reads == 1,
+           "cancellation during a verification destination read is honored immediately");
 
     ConfigurableBackend final_verification_cancel_destination{3};
     class FinalVerificationCancellation final : public BlockCopyObserver {
