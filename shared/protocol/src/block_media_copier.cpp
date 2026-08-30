@@ -113,6 +113,11 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
         return BlockCopyResult::Cancelled;
     if (destination.flush() != BlockOperationResult::Complete)
         return BlockCopyResult::FlushFailed;
+    // Flushing can block while buffered writes reach removable media. Honor a
+    // cancellation that arrived during that wait before reporting success or
+    // beginning verification reads.
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (!verify)
         return BlockCopyResult::Complete;
 

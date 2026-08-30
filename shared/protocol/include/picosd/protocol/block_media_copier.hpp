@@ -34,8 +34,9 @@ struct BlockCopyProgress {
 // completed_blocks remains the number of copied sectors. Returning true from
 // cancellation_requested stops before the next backend operation, including
 // preflight media and capacity queries. It is also checked between the two
-// reads used to verify a sector. A cancellation requested by the final copy
-// progress notification stops before the destination flush begins.
+// reads used to verify a sector and after the destination flush. A cancellation
+// requested by the final copy progress notification stops before the flush
+// begins.
 class BlockCopyObserver {
   public:
     virtual ~BlockCopyObserver() = default;

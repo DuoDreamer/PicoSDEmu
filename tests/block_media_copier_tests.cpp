@@ -199,6 +199,32 @@ int main() {
                final_boundary_destination.flushes == 0,
            "cancellation at the final copied block stops before the flush");
 
+    ConfigurableBackend flush_cancel_destination{3};
+    const auto reads_before_flush_cancellation = source.reads;
+    class FlushCancellation final : public BlockCopyObserver {
+      public:
+        explicit FlushCancellation(const ConfigurableBackend &destination)
+            : destination_(destination) {}
+        bool cancellation_requested() const override {
+            return destination_.flushes != 0;
+        }
+        void progress(BlockCopyProgress value) override {
+            progress_ = value;
+        }
+        BlockCopyProgress progress_{};
+
+      private:
+        const ConfigurableBackend &destination_;
+    } flush_cancellation{flush_cancel_destination};
+    expect(copy_block_media(source, flush_cancel_destination, true, &flush_cancellation) ==
+                   BlockCopyResult::Cancelled &&
+               flush_cancel_destination.flushes == 1 &&
+               source.reads == reads_before_flush_cancellation + 3 &&
+               flush_cancel_destination.reads == 0 &&
+               flush_cancellation.progress_.completed_blocks == 3 &&
+               !flush_cancellation.progress_.verifying,
+           "cancellation during flush stops before verification");
+
     ConfigurableBackend verification_cancel_destination{3};
     class VerificationCancellation final : public BlockCopyObserver {
       public:
