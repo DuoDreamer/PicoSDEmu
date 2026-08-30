@@ -55,7 +55,8 @@ class BlockCopyObserver {
 // used by the two directional host copy commands: the other backend must already
 // be exclusively owned by the caller (for example, a locked image file). They
 // reject the operation before acquiring either backend unless the caller records
-// explicit confirmation of the destructive destination.
+// explicit confirmation of the destructive destination. A confirmed operation
+// that is already cancelled does not acquire physical-backend ownership.
 [[nodiscard]] BlockCopyResult copy_to_exclusive_backend(BlockBackend &source,
                                                         BlockBackendArbiter &destination,
                                                         bool destination_confirmed, bool verify,
