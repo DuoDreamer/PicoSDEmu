@@ -60,6 +60,7 @@ class ConfigurableBackend final : public BlockBackend {
         return storage_.read(lba, output);
     }
     BlockOperationResult write(std::size_t lba, const SdBlock &input) override {
+        ++writes;
         if (lba == fail_write_lba)
             return BlockOperationResult::Failed;
         return storage_.write(lba, input);
@@ -72,6 +73,7 @@ class ConfigurableBackend final : public BlockBackend {
     std::size_t fail_read_lba = static_cast<std::size_t>(-1);
     std::size_t fail_write_lba = static_cast<std::size_t>(-1);
     std::size_t flushes = 0;
+    std::size_t writes = 0;
     mutable std::size_t reads = 0;
     mutable std::size_t block_count_queries = 0;
     mutable std::size_t media_queries = 0;
@@ -120,6 +122,21 @@ class CancellationSource final : public BlockBackend {
   private:
     BlockBackend &backend_;
     bool &source_read_;
+};
+
+class CounterCancellation final : public BlockCopyObserver {
+  public:
+    explicit CounterCancellation(const std::size_t &counter, std::size_t threshold = 1)
+        : counter_(counter), threshold_(threshold) {}
+
+    bool cancellation_requested() const override {
+        return counter_ >= threshold_;
+    }
+    void progress(BlockCopyProgress) override {}
+
+  private:
+    const std::size_t &counter_;
+    std::size_t threshold_;
 };
 
 } // namespace
@@ -191,6 +208,31 @@ int main() {
                untouched.front() == 0 && read_cancel_destination.flushes == 0,
            "cancellation after reading leaves the destination unchanged");
 
+    ConfigurableBackend write_cancel_destination{3};
+    CounterCancellation cancellation_during_write{write_cancel_destination.writes};
+    expect(copy_block_media(source, write_cancel_destination, false, &cancellation_during_write) ==
+                   BlockCopyResult::Cancelled &&
+               write_cancel_destination.writes == 1 && write_cancel_destination.flushes == 0,
+           "cancellation during a destination write stops before progress or flush");
+
+    ConfigurableBackend failed_read_cancellation_source{1};
+    ConfigurableBackend failed_read_cancellation_destination{1};
+    failed_read_cancellation_source.fail_read_lba = 0;
+    CounterCancellation failed_read_cancellation{failed_read_cancellation_source.reads};
+    expect(copy_block_media(failed_read_cancellation_source, failed_read_cancellation_destination,
+                            false, &failed_read_cancellation) == BlockCopyResult::Cancelled &&
+               failed_read_cancellation_destination.writes == 0,
+           "cancellation requested during a failed read takes precedence over the error");
+
+    ConfigurableBackend failed_write_cancellation_destination{1};
+    failed_write_cancellation_destination.fail_write_lba = 0;
+    CounterCancellation failed_write_cancellation{failed_write_cancellation_destination.writes};
+    expect(copy_block_media(failed_read_cancellation_destination,
+                            failed_write_cancellation_destination, false,
+                            &failed_write_cancellation) == BlockCopyResult::Cancelled &&
+               failed_write_cancellation_destination.flushes == 0,
+           "cancellation requested during a failed write takes precedence over the error");
+
     ConfigurableBackend final_boundary_destination{3};
     Observer final_boundary_cancellation{3};
     expect(copy_block_media(source, final_boundary_destination, false,
@@ -224,6 +266,13 @@ int main() {
                flush_cancellation.progress_.completed_blocks == 3 &&
                !flush_cancellation.progress_.verifying,
            "cancellation during flush stops before verification");
+
+    ConfigurableBackend failed_flush_cancellation_destination{3};
+    failed_flush_cancellation_destination.fail_flush = true;
+    CounterCancellation failed_flush_cancellation{failed_flush_cancellation_destination.flushes};
+    expect(copy_block_media(source, failed_flush_cancellation_destination, false,
+                            &failed_flush_cancellation) == BlockCopyResult::Cancelled,
+           "cancellation requested during a failed flush takes precedence over the error");
 
     ConfigurableBackend verification_cancel_destination{3};
     class VerificationCancellation final : public BlockCopyObserver {

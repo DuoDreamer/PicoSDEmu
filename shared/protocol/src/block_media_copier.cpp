@@ -68,40 +68,51 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
     // stop before the next backend is consulted.
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
-    if (!source.media_present())
+    const bool source_present = source.media_present();
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
+    if (!source_present)
         return BlockCopyResult::SourceUnavailable;
+    const bool destination_present = destination.media_present();
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
-    if (!destination.media_present())
+    if (!destination_present)
         return BlockCopyResult::DestinationUnavailable;
+    const bool destination_read_only = destination.write_protected();
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
-    if (destination.write_protected())
+    if (destination_read_only)
         return BlockCopyResult::DestinationWriteProtected;
-    if (cancelled(observer))
-        return BlockCopyResult::Cancelled;
 
     const auto blocks = source.block_count();
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
-    if (destination.block_count() < blocks)
-        return BlockCopyResult::DestinationTooSmall;
+    const auto destination_blocks = destination.block_count();
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
+    if (destination_blocks < blocks)
+        return BlockCopyResult::DestinationTooSmall;
 
     report(observer, 0, blocks);
     SdBlock sector{};
     for (std::size_t lba = 0; lba < blocks; ++lba) {
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
-        if (source.read(lba, sector) != BlockOperationResult::Complete)
-            return BlockCopyResult::ReadFailed;
+        const auto read_result = source.read(lba, sector);
         // Reading the source can block long enough for an asynchronous
         // cancellation request to arrive. Recheck before changing the
         // destination so cancellation never starts a write unnecessarily.
+        // Cancellation also takes precedence over a failure returned by the
+        // operation: once the request is observed, callers must not receive a
+        // stale device error for an operation they abandoned.
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
-        if (destination.write(lba, sector) != BlockOperationResult::Complete)
+        if (read_result != BlockOperationResult::Complete)
+            return BlockCopyResult::ReadFailed;
+        const auto write_result = destination.write(lba, sector);
+        if (cancelled(observer))
+            return BlockCopyResult::Cancelled;
+        if (write_result != BlockOperationResult::Complete)
             return BlockCopyResult::WriteFailed;
         report(observer, lba + 1, blocks);
     }
@@ -111,13 +122,14 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
     // notification cannot stop before the potentially blocking flush.
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
-    if (destination.flush() != BlockOperationResult::Complete)
-        return BlockCopyResult::FlushFailed;
+    const auto flush_result = destination.flush();
     // Flushing can block while buffered writes reach removable media. Honor a
     // cancellation that arrived during that wait before reporting success or
     // beginning verification reads.
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
+    if (flush_result != BlockOperationResult::Complete)
+        return BlockCopyResult::FlushFailed;
     if (!verify)
         return BlockCopyResult::Complete;
 
@@ -127,16 +139,18 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
     for (std::size_t lba = 0; lba < blocks; ++lba) {
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
-        if (source.read(lba, expected) != BlockOperationResult::Complete)
-            return BlockCopyResult::ReadFailed;
+        const auto source_read_result = source.read(lba, expected);
         // Verification reads can block just like copy reads. Avoid starting a
         // second device operation when cancellation arrived during the first.
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
-        if (destination.read(lba, actual) != BlockOperationResult::Complete)
+        if (source_read_result != BlockOperationResult::Complete)
             return BlockCopyResult::ReadFailed;
+        const auto destination_read_result = destination.read(lba, actual);
         if (cancelled(observer))
             return BlockCopyResult::Cancelled;
+        if (destination_read_result != BlockOperationResult::Complete)
+            return BlockCopyResult::ReadFailed;
         if (expected != actual)
             return BlockCopyResult::VerificationFailed;
         report(observer, blocks, blocks, lba + 1, true);
@@ -159,6 +173,8 @@ BlockCopyResult copy_to_exclusive_backend(BlockBackend &source, BlockBackendArbi
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
     HostCopyOwnership ownership{destination};
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;
     HostCopyBackend physical{destination};
@@ -173,6 +189,8 @@ BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source, BlockBa
     if (cancelled(observer))
         return BlockCopyResult::Cancelled;
     HostCopyOwnership ownership{source};
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;
     HostCopyBackend physical{source};
