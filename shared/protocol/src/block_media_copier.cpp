@@ -153,6 +153,11 @@ BlockCopyResult copy_to_exclusive_backend(BlockBackend &source, BlockBackendArbi
                                           BlockCopyObserver *observer) {
     if (!destination_confirmed)
         return BlockCopyResult::ConfirmationRequired;
+    // A caller can cancel while waiting to launch a confirmed copy. Avoid
+    // disturbing the physical backend's ownership state when no work should
+    // begin.
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     HostCopyOwnership ownership{destination};
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;
@@ -165,6 +170,8 @@ BlockCopyResult copy_from_exclusive_backend(BlockBackendArbiter &source, BlockBa
                                             BlockCopyObserver *observer) {
     if (!destination_confirmed)
         return BlockCopyResult::ConfirmationRequired;
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     HostCopyOwnership ownership{source};
     if (!ownership.acquired())
         return BlockCopyResult::OwnershipUnavailable;

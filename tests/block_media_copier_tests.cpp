@@ -370,6 +370,34 @@ int main() {
                unconfirmed_physical.owner() == BlockBackendArbiter::Owner::None,
            "copy to an image requires explicit destination confirmation");
 
+    Observer cancelled_exclusive_copy{0};
+    expect(copy_to_exclusive_backend(source, unconfirmed_physical, true, false,
+                                     &cancelled_exclusive_copy) == BlockCopyResult::Cancelled &&
+               unconfirmed_physical.owner() == BlockBackendArbiter::Owner::None &&
+               unconfirmed_destination.media_queries == 0,
+           "cancelled copy to physical media does not acquire or query the backend");
+    expect(copy_from_exclusive_backend(unconfirmed_physical, restored_image, true, false,
+                                       &cancelled_exclusive_copy) == BlockCopyResult::Cancelled &&
+               unconfirmed_physical.owner() == BlockBackendArbiter::Owner::None,
+           "cancelled copy from physical media does not acquire the backend");
+
+    class OwnershipCancellation final : public BlockCopyObserver {
+      public:
+        explicit OwnershipCancellation(const BlockBackendArbiter &backend) : backend_(backend) {}
+        bool cancellation_requested() const override {
+            return backend_.owner() == BlockBackendArbiter::Owner::HostCopy;
+        }
+        void progress(BlockCopyProgress) override {}
+
+      private:
+        const BlockBackendArbiter &backend_;
+    } ownership_cancellation{unconfirmed_physical};
+    expect(copy_to_exclusive_backend(source, unconfirmed_physical, true, false,
+                                     &ownership_cancellation) == BlockCopyResult::Cancelled &&
+               unconfirmed_physical.owner() == BlockBackendArbiter::Owner::None &&
+               unconfirmed_destination.media_queries == 0,
+           "cancellation after ownership acquisition releases it before preflight");
+
     physical_storage.fail_write_lba = 1;
     expect(copy_to_exclusive_backend(source, physical, true, false) ==
                    BlockCopyResult::WriteFailed &&
