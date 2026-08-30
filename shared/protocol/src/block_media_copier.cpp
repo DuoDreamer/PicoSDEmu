@@ -62,16 +62,32 @@ void report(BlockCopyObserver *observer, std::size_t completed, std::size_t tota
 
 BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination, bool verify,
                                  BlockCopyObserver *observer) {
+    // Capacity and media-status queries can touch removable hardware too. An
+    // operation cancelled before it starts must therefore avoid even the
+    // preflight queries, and cancellation that arrives during one query must
+    // stop before the next backend is consulted.
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (!source.media_present())
         return BlockCopyResult::SourceUnavailable;
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (!destination.media_present())
         return BlockCopyResult::DestinationUnavailable;
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (destination.write_protected())
         return BlockCopyResult::DestinationWriteProtected;
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
 
     const auto blocks = source.block_count();
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     if (destination.block_count() < blocks)
         return BlockCopyResult::DestinationTooSmall;
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
 
     report(observer, 0, blocks);
     SdBlock sector{};
