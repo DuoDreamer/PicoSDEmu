@@ -108,6 +108,10 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
             return BlockCopyResult::VerificationFailed;
         report(observer, blocks, blocks, lba + 1, true);
     }
+    // As with the copy phase, let an observer react to the final progress
+    // notification before the operation reports success.
+    if (cancelled(observer))
+        return BlockCopyResult::Cancelled;
     return BlockCopyResult::Complete;
 }
 
