@@ -80,6 +80,11 @@ BlockCopyResult copy_block_media(BlockBackend &source, BlockBackend &destination
             return BlockCopyResult::Cancelled;
         if (source.read(lba, sector) != BlockOperationResult::Complete)
             return BlockCopyResult::ReadFailed;
+        // Reading the source can block long enough for an asynchronous
+        // cancellation request to arrive. Recheck before changing the
+        // destination so cancellation never starts a write unnecessarily.
+        if (cancelled(observer))
+            return BlockCopyResult::Cancelled;
         if (destination.write(lba, sector) != BlockOperationResult::Complete)
             return BlockCopyResult::WriteFailed;
         report(observer, lba + 1, blocks);
